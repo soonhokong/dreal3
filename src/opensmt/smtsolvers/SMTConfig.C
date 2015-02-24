@@ -120,6 +120,7 @@ SMTConfig::initializeConfig( )
   nra_polytope                 = false;
   nra_simp                     = true;
   nra_ncbt                     = false;
+  nra_output_num_nodes         = false;
 }
 
 void SMTConfig::parseConfig ( char * f )

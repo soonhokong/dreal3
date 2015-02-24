@@ -205,7 +205,8 @@ struct SMTConfig
   bool         nra_polytope;                  // use polytope contractor in IBEX
   bool         nra_simp;                      // use simplification in preprocessing
   bool         nra_ncbt;                      // use nonchronological backtracking in icp
-
+  bool         nra_output_num_nodes;          // print num sat and icp nodes
+  
 private:
 
   ofstream     stats_out;                    // File for statistics
