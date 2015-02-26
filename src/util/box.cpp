@@ -60,7 +60,7 @@ box::box(std::vector<Enode *> const & vars, ibex::IntervalVector values)
 
 
 void box::constructFromVariables(vector<Enode *> const & vars) {
-    DREAL_LOG_DEBUG << "box::constructFromVariables";
+    // DREAL_LOG_DEBUG << "box::constructFromVariables";
     m_vars = vars;
     // Construct ibex::IntervalVector
     m_values.resize(m_vars.size());

@@ -80,27 +80,13 @@ ibex::SystemFactory* build_system_factory(box const & box, vector<algebraic_cons
     }
     DREAL_LOG_DEBUG << "build_system_factory: Add Variable: DONE";
     // Construct System: add constraints
-    thread_local static unordered_map<Enode *, ibex::ExprCtr const *> tls_exprctr_cache_pos;
-    thread_local static unordered_map<Enode *, ibex::ExprCtr const *> tls_exprctr_cache_neg;
     for (algebraic_constraint const * ctr : ctrs) {
         DREAL_LOG_INFO << "build_system_factory: Add Constraint: " << *ctr;
-        Enode * e = ctr->get_enodes()[0];
-        auto p = e->getPolarity();
-        assert(p == l_True || p == l_False);
-        auto & tls_exprctr_cache = (p == l_True) ? tls_exprctr_cache_pos : tls_exprctr_cache_neg;
-        auto exprctr_it = tls_exprctr_cache.find(e);
-        ibex::ExprCtr const * exprctr = nullptr;
-        if (exprctr_it == tls_exprctr_cache.end()) {
-            // Not found
-            exprctr = translate_enode_to_exprctr(var_map, e);
-            tls_exprctr_cache.emplace(e, exprctr);
-        } else {
-            // Found
-            exprctr = exprctr_it->second;
-        }
-        if (exprctr) {
-            DREAL_LOG_INFO << "build_system_factory: Add Constraint: expr: " << *exprctr;
-            sf->add_ctr(*exprctr);
+        ibex::NumConstraint const * numctr = ctr->get_numctr();
+        if (numctr) {
+            DREAL_LOG_INFO << "build_system_factory: Add Constraint: expr: --before " << *numctr;
+            sf->add_ctr(*numctr);
+            DREAL_LOG_INFO << "build_system_factory: Add Constraint: expr: --after " << *numctr;
         }
     }
     DREAL_LOG_DEBUG << "build_system_factory: Add Constraint: " << "DONE";
