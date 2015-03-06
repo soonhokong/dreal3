@@ -105,7 +105,7 @@ algebraic_constraint::algebraic_constraint(Enode * const e, lbool p)
     : constraint(constraint_type::Algebraic, e), m_exprctr(nullptr), m_numctr(nullptr) {
 
     unordered_map<string, ibex::Variable const> var_map;
-    m_exprctr = translate_enode_to_exprctr(var_map, e, p);
+    m_exprctr = new ibex::ExprCtr(translate_enode_to_exprctr(var_map, e, p));
     if (m_exprctr) {
         m_var_array.resize(var_map.size());
         unsigned i = 0;

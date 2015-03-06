@@ -82,11 +82,11 @@ ibex::SystemFactory* build_system_factory(box const & box, vector<algebraic_cons
     // Construct System: add constraints
     for (algebraic_constraint const * ctr : ctrs) {
         DREAL_LOG_INFO << "build_system_factory: Add Constraint: " << *ctr;
-        ibex::NumConstraint const * numctr = ctr->get_numctr();
-        if (numctr) {
-            DREAL_LOG_INFO << "build_system_factory: Add Constraint: expr: --before " << *numctr;
-            sf->add_ctr(*numctr);
-            DREAL_LOG_INFO << "build_system_factory: Add Constraint: expr: --after " << *numctr;
+        ibex::ExprCtr const * exprctr = ctr->get_exprctr();
+        if (exprctr) {
+            DREAL_LOG_INFO << "build_system_factory: Add Constraint: expr: --before " << *exprctr;
+            sf->add_ctr(*exprctr);
+            DREAL_LOG_INFO << "build_system_factory: Add Constraint: expr: --after " << *exprctr;
         }
     }
     DREAL_LOG_DEBUG << "build_system_factory: Add Constraint: " << "DONE";
