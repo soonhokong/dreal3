@@ -178,8 +178,7 @@ ExprCtr translate_enode_to_exprctr(unordered_map<string, Variable const> & var_m
     auto const polarity = p == l_Undef ? e->getPolarity() : p;
     switch (e->getCar()->getId()) {
     case ENODE_ID_EQ:
-        // TODO(soonhok): remove != case
-        return (polarity == l_True) ? (left = right) : throw std::logic_error("nullptr");
+        return (polarity == l_True) ? (left = right) : throw std::logic_error("!= case is detected in translate_enode_to_exprnode");
     case ENODE_ID_LEQ:
         return (polarity == l_True) ? (left <= right) : (left >  right);
     case ENODE_ID_GEQ:
