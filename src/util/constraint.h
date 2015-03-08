@@ -67,7 +67,7 @@ private:
     std::pair<bool, ibex::Interval> eval(ibex::IntervalVector const & iv) const;
 
 public:
-    explicit algebraic_constraint(Enode * const e, lbool p = l_Undef);
+    algebraic_constraint(Enode * const e, std::unordered_map<std::string, ibex::Variable const> & var_map, lbool const p = l_Undef);
     virtual ~algebraic_constraint();
     virtual std::ostream & display(std::ostream & out) const;
     std::pair<bool, ibex::Interval> eval(box const & b) const;

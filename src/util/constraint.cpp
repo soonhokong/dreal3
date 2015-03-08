@@ -101,9 +101,8 @@ ostream & operator<<(ostream & out, constraint const & c) {
 // ====================================================
 // Algebraic constraint
 // ====================================================
-algebraic_constraint::algebraic_constraint(Enode * const e, lbool p)
+algebraic_constraint::algebraic_constraint(Enode * const e, unordered_map<string, ibex::Variable const> & var_map, lbool const p)
     : constraint(constraint_type::Algebraic, e), m_exprctr(nullptr), m_numctr(nullptr) {
-    unordered_map<string, ibex::Variable const> var_map;
     // lhs != rhs case is always true under delta-perturbation
     if (e->getCar()->getId() == ENODE_ID_EQ && p == l_False) { return; }
     m_exprctr = new ibex::ExprCtr(translate_enode_to_exprctr(var_map, e, p));

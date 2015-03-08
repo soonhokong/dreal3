@@ -22,6 +22,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 #include <functional>
 #include <set>
+#include <string>
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -83,6 +84,7 @@ private:
     scoped_vec<box> m_boxes;
     std::vector<constraint *> m_ctrs;
     std::map<std::pair<Enode*, bool>, constraint *> m_ctr_map;
+    std::unordered_map<std::string, ibex::Variable const> m_var_map;
 
     contractor m_ctc;
     box m_box;

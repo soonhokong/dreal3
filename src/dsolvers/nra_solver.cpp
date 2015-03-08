@@ -120,8 +120,8 @@ std::vector<constraint *> nra_solver::initialize_constraints() {
             forallt_constraint fc = mk_forallt_constraint(l);
             invs.push_back(fc);
         } else {
-            algebraic_constraint * ac_pos = new algebraic_constraint(l, l_True);
-            algebraic_constraint * ac_neg = new algebraic_constraint(l, l_False);
+            algebraic_constraint * ac_pos = new algebraic_constraint(l, m_var_map, l_True);
+            algebraic_constraint * ac_neg = new algebraic_constraint(l, m_var_map, l_False);
             DREAL_LOG_INFO << "nra_solver::initialize_constraints: collect AlgebraicConstraint (+): " << *ac_pos;
             DREAL_LOG_INFO << "nra_solver::initialize_constraints: collect AlgebraicConstraint (-): " << *ac_neg;
             ctrs.push_back(ac_pos);
