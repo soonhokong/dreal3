@@ -57,9 +57,11 @@ std::ostream & operator<<(std::ostream & out, contractor_cell const & c) {
     return c.display(out);
 }
 ibex::SystemFactory* build_system_factory(box const & box, vector<algebraic_constraint const *> const & ctrs) {
+    cerr << "build system factory\n";
     DREAL_LOG_DEBUG << "build_system_factory:";
     ibex::SystemFactory * sf = new ibex::SystemFactory();
     unordered_map<string, ibex::Variable const> var_map;  // Needed for translateEnodeToExprCtr
+
     // Construct System: add Variables
     thread_local static unordered_map<Enode*, ibex::Variable const *> tls_var_cache;
     for (Enode * e : box.get_vars()) {
@@ -79,6 +81,7 @@ ibex::SystemFactory* build_system_factory(box const & box, vector<algebraic_cons
         sf->add_var(*var);
     }
     DREAL_LOG_DEBUG << "build_system_factory: Add Variable: DONE";
+
     // Construct System: add constraints
     thread_local static unordered_map<Enode *, ibex::ExprCtr const *> tls_exprctr_cache_pos;
     thread_local static unordered_map<Enode *, ibex::ExprCtr const *> tls_exprctr_cache_neg;

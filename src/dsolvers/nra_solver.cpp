@@ -21,6 +21,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 
 #include <gflags/gflags.h>
 #include <algorithm>
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -234,6 +235,7 @@ void nra_solver::popBacktrackPoint() {
 }
 
 box icp_loop(box b, contractor const & ctc, double const prec) {
+    cerr << "blah" << endl;
     stack<box> box_stack;
     box_stack.push(b);
     do {
@@ -241,7 +243,12 @@ box icp_loop(box b, contractor const & ctc, double const prec) {
                        << "\t" << "box stack Size = " << box_stack.size();
         b = box_stack.top();
         box_stack.pop();
+        static std::chrono::duration<double> elapsed_time;
+        auto start = std::chrono::system_clock::now();
         b = ctc.prune(b);
+        auto end = std::chrono::system_clock::now();
+        elapsed_time += end - start;
+        cerr << elapsed_time.count() << endl;
         if (!b.is_empty()) {
             if (b.max_diam() > prec) {
                 tuple<int, box, box> splits = b.bisect();
@@ -303,24 +310,15 @@ box icp_loop_with_nc_bt(box b, contractor const & ctc, double const prec) {
                 assert(box_stack.size() == bisect_var_stack.size());
                 int bisect_var = bisect_var_stack.top();
                 ibex::BitSet const & input = ctc.input();
-
-                // cerr << ctc << endl;
-
-                input.display(cerr);
-                cerr << "\n";
-
-
                 if (!input[bisect_var]) {
                     box_stack.pop();
                     bisect_var_stack.pop();
-                    cerr << "HERE!!! POP!!" << endl;
                 } else {
                     break;
                 }
             }
         }
     } while (box_stack.size() > 0);
-    cerr << "prune count = " << prune_count << endl;
     return b;
 }
 
@@ -349,13 +347,15 @@ void nra_solver::handle_sat_case(box const & b) const {
 // Check for consistency.
 // If flag is set make sure you run a complete check
 bool nra_solver::check(bool complete) {
+    // static std::chrono::duration<double> elapsed_time;
+    // auto start = std::chrono::system_clock::now();
     if (config.nra_stat) { m_stat.increase_check(complete); }
     if (m_stack.size() == 0) { return true; }
     DREAL_LOG_INFO << "nra_solver::check(complete = " << boolalpha << complete << ")";
     double const prec = config.nra_precision;
     m_ctc = build_contractor(m_box, m_stack);
     m_box = m_ctc.prune(m_box);
-    if (!m_box.is_empty() && m_box.max_diam() > prec && complete) {
+    if (!m_box.is_empty() && m_box.max_diam() > prec) {
         m_box = icp_loop(m_box, m_ctc, prec);
     }
     bool result = !m_box.is_empty();
@@ -397,6 +397,9 @@ bool nra_solver::check(bool complete) {
     } else if (complete) {
         handle_sat_case(m_box);
     }
+    // auto end = std::chrono::system_clock::now();
+    // elapsed_time += end - start;
+    // cerr << elapsed_time.count() << endl;
     return result;
 }
 
