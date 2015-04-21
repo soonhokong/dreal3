@@ -362,7 +362,20 @@ contractor_capd_fwd_full::~contractor_capd_fwd_full() {
     delete m_vectorField;
 }
 
-bool compute_enclosures(capd::IOdeSolver & solver, capd::interval const & prevTime, capd::interval const T, unsigned const grid_size, vector<pair<capd::interval, capd::IVector>> & enclosures, bool add_all = false) {
+bool check_invariant(capd::IVector const & v,
+                     std::vector<forallt_constraint> const & invs) {
+    // TODO(soonhok): implement this
+    return true;
+}
+
+
+bool compute_enclosures(capd::IOdeSolver & solver,
+                        capd::interval const & prevTime,
+                        capd::interval const T,
+                        std::vector<forallt_constraint> const & invs,
+                        unsigned const grid_size,
+                        vector<pair<capd::interval, capd::IVector>> & enclosures,
+                        bool add_all = false) {
     capd::interval const stepMade = solver.getStep();
     capd::IOdeSolver::SolutionCurve const & curve = solver.getCurve();
     capd::interval domain = capd::interval(0, 1) * stepMade;
@@ -487,7 +500,7 @@ box contractor_capd_fwd_full::prune(box b, SMTConfig &) const {
             if (m_T.leftBound() <= m_timeMap->getCurrentTime().rightBound()) {
                 //                     [     T      ]
                 // [     current Time     ]
-                bool invariantViolated = compute_enclosures(*m_solver, prevTime, m_T, m_grid_size, enclosures);
+                bool invariantViolated = compute_enclosures(*m_solver, prevTime, m_T, m_ctr->get_invs(), m_grid_size, enclosures);
                 if (invariantViolated) {
                     // TODO(soonhok): invariant
                     DREAL_LOG_INFO << "ode_solver::compute_forward: invariant violated";
@@ -534,6 +547,8 @@ unsigned int extract_step(string const & name) {
 }
 
 json contractor_capd_fwd_full::generate_trace(box b, SMTConfig &) const {
+    auto x = m_ctr->get_invs();
+
     integral_constraint const & ic = m_ctr->get_ic();
     b = intersect_params(b, ic);
     if (!m_solver) {
@@ -561,7 +576,7 @@ json contractor_capd_fwd_full::generate_trace(box b, SMTConfig &) const {
             if (contain_nan(s)) {
                 DREAL_LOG_INFO << "ode_solver::compute_forward: contain NaN";
             }
-            bool invariantViolated = compute_enclosures(*m_solver, prevTime, m_T, m_grid_size, enclosures, true);
+            bool invariantViolated = compute_enclosures(*m_solver, prevTime, m_T, m_ctr->get_invs(), m_grid_size, enclosures, true);
             if (invariantViolated) {
                 DREAL_LOG_INFO << "ode_solver::compute_forward: invariant violated";
                 break;
@@ -673,7 +688,7 @@ box contractor_capd_bwd_full::prune(box b, SMTConfig &) const {
             if (m_T.leftBound() <= m_timeMap->getCurrentTime().rightBound()) {
                 //                     [     T      ]
                 // [     current Time     ]
-                bool invariantViolated = compute_enclosures(*m_solver, prevTime, m_T, m_grid_size, enclosures);
+                bool invariantViolated = compute_enclosures(*m_solver, prevTime, m_T, m_ctr->get_invs(), m_grid_size, enclosures);
                 if (invariantViolated) {
                     // TODO(soonhok): invariant
                     DREAL_LOG_INFO << "ode_solver::compute_forward: invariant violated";
