@@ -182,7 +182,6 @@ struct SMTConfig
   bool         nra_stat;                      // --stat option
   bool         nra_proof;                     // --proof option
   bool         nra_readable_proof;            // --readable_proof option
-  bool         nra_model;                     // --model option
   ofstream     nra_model_out;                 // file stream for model
   bool         nra_model;                     // --model option
   string       nra_model_out_name;            // filename for model
@@ -206,8 +205,9 @@ struct SMTConfig
   bool         nra_polytope;                  // use polytope contractor in IBEX
   bool         nra_simp;                      // use simplification in preprocessing
   bool         nra_ncbt;                      // use nonchronological backtracking in icp
-  bool         nra_output_num_nodes;          // print num sat and icp nodes
-  
+  int          nra_output_num_nodes;          // output number of SAT and ICP nodes
+  string       nra_plan_heuristic;
+
 private:
 
   ofstream     stats_out;                    // File for statistics
