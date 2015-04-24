@@ -528,6 +528,7 @@ box contractor_capd_fwd_full::prune(box b, SMTConfig &) const {
             b[ic.get_time_t()] = ibex::Interval(m_T.leftBound(), m_T.rightBound());
         } else {
             // UNSAT
+            DREAL_LOG_INFO << "contractor_capd_fwd_full::prune: After filter, we have emptyset.";
             b.set_empty();
         }
         DREAL_LOG_INFO << "m_X_0 : " << m_X_0;
