@@ -380,8 +380,13 @@ bool compute_enclosures(capd::IOdeSolver & solver,
     capd::IOdeSolver::SolutionCurve const & curve = solver.getCurve();
     capd::interval domain = capd::interval(0, 1) * stepMade;
 
+    DREAL_LOG_INFO << "compute_enclosures: Domain         = " << domain;
+    DREAL_LOG_INFO << "compute_enclosures: T              = " << T;
+    DREAL_LOG_INFO << "compute_enclosures: prevTime       = " << prevTime;
     list<capd::interval> intvs;
-    if (!add_all && (prevTime.rightBound() < T.leftBound())) {
+    if (!add_all && (domain.rightBound() < T.leftBound() || T.rightBound() < domain.leftBound())) {
+        intvs.push_front(domain);
+    } else if (!add_all && (prevTime.rightBound() < T.leftBound())) {
         capd::interval pre_T = capd::interval(0, T.leftBound() - prevTime.rightBound());
         domain.setLeftBound(T.leftBound() - prevTime.rightBound());
         intvs = split(domain, grid_size);
@@ -391,12 +396,18 @@ bool compute_enclosures(capd::IOdeSolver & solver,
     }
 
     for (capd::interval const & subsetOfDomain : intvs) {
+        DREAL_LOG_INFO << "compute_enclosures: Domain         = " << domain;
         DREAL_LOG_INFO << "compute_enclosures: subsetOfDomain = " << subsetOfDomain;
         capd::interval dt = prevTime + subsetOfDomain;
         capd::IVector v = curve(subsetOfDomain);
         // TODO(soonhok): check invariant
         // if (!check_invariant(v, m_inv)) {
-        DREAL_LOG_INFO << "compute_enclosures:" << dt << "\t" << v;
+        capd::interval const norm = v.euclNorm();
+        if (norm.rightBound() == numeric_limits<double>::infinity() ||
+            norm.leftBound() == -numeric_limits<double>::infinity()) {
+            throw contractor_exception("ODE Integration Diverged");
+        }
+        DREAL_LOG_INFO << "compute_enclosures:" << dt << "\t" << v << "\t" << norm;
         if (add_all || (prevTime + subsetOfDomain.rightBound() > T.leftBound())) {
             enclosures.emplace_back(dt, v);
         }
