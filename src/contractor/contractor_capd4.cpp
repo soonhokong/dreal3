@@ -412,6 +412,8 @@ bool compute_enclosures(capd::IOdeSolver & solver,
             enclosures.emplace_back(dt, v);
         }
     }
+
+    DREAL_LOG_INFO << "compute_enclosures: end";
     return false;
 }
 
@@ -422,9 +424,13 @@ bool filter(vector<pair<capd::interval, capd::IVector>> & enclosures, capd::IVec
         capd::interval & dt = item.first;
         capd::IVector &  v  = item.second;
         // v = v union X_t
+        DREAL_LOG_INFO << "filter: " << v << "\t" << X_t;
         if (!intersection(v, X_t, v)) {
+            DREAL_LOG_INFO << "filter: = empty";
             dt.setLeftBound(0.0);
             dt.setRightBound(0.0);
+        } else {
+            DREAL_LOG_INFO << "filter: = " << v;
         }
     }
     enclosures.erase(remove_if(enclosures.begin(), enclosures.end(),
@@ -521,6 +527,44 @@ box contractor_capd_fwd_full::prune(box b, SMTConfig &) const {
             }
             prevTime = m_timeMap->getCurrentTime();
         } while (/*!invariantViolated &&*/ !m_timeMap->completed());
+
+        // capd::ITimeMap::SolutionCurve solution(0.);
+        // (*m_timeMap)(m_T.rightBound(), s, solution);
+        // DREAL_LOG_INFO << "domain = [" << solution.getLeftDomain()
+        //                << ", " << solution.getRightDomain() << "]";
+        // DREAL_LOG_INFO << "time   = " << m_T;
+        // list<capd::interval> intvs = split(m_T, 100);
+        // for (capd::interval const & p : intvs) {
+        //     DREAL_LOG_INFO << "t = " << p << "\t"
+        //                    << "v = " << solution(p);
+        //     enclosures.emplace_back(p, solution(p));
+        // }
+
+        // do {
+        //     capd::interval const t1 = s.getCurrentTime();
+        //     (*m_timeMap)(m_T.rightBound(), s);
+        //     capd::interval const t2 = s.getCurrentTime();
+        //     capd::interval const t(t1.leftBound(), t2.rightBound());
+        //     capd::IVector  v = s.getLastEnclosure();
+        //     DREAL_LOG_FATAL << "step = " << m_solver->getStep();
+        //     DREAL_LOG_FATAL << "t = " << t << "\t"
+        //                     << "v = " << v;
+        //     capd::interval const norm = v.euclNorm();
+        //     if (norm.rightBound() == numeric_limits<double>::infinity() ||
+        //         norm.leftBound() == -numeric_limits<double>::infinity()) {
+        //         throw contractor_exception("ODE Integration Diverged");
+        //     }
+        //     enclosures.emplace_back(t, v);
+        // } while (!m_timeMap->completed());
+
+        if (s.getCurrentTime().right() < m_T.right()) {
+            DREAL_LOG_FATAL << "OMG:: ODE Solver failed to complete";
+            throw contractor_exception("ODE Integration Failed");
+        }
+
+        DREAL_LOG_INFO << "HERE:: Current Time = " << s.getCurrentTime() << "\t"
+                       << "T = " << m_T;
+
         if (filter(enclosures, m_X_t, m_T)) {
             // SAT
             update_box_with_ivector(b, ic.get_vars_t(), m_X_t);
