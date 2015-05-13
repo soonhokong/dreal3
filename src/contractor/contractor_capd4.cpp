@@ -286,8 +286,29 @@ capd::IVector extract_ivector(box const & b, std::vector<Enode *> const & vars) 
         Enode * const var = vars[i];
         ibex::Interval const & intv = b[var];
         intvs[i] = capd::interval(intv.lb(), intv.ub());
+        DREAL_LOG_INFO << "extract_ivector: " << var << " : " << intvs[i];
     }
     return intvs;
+}
+
+capd::IVector extract_domain_to_ivector(box const & b, std::vector<Enode *> const & vars) {
+    capd::IVector capd_iv(vars.size());
+    for (unsigned i = 0; i < vars.size(); i++) {
+        Enode * const var = vars[i];
+        ibex::Interval const & intv = b[var];
+        capd_iv[i] = capd::interval(intv.lb(), intv.ub());
+        DREAL_LOG_INFO << "extract_ivector: " << var << " : " << capd_iv[i];
+    }
+    return capd_iv;
+}
+
+box project_ivector_to_box(box b, capd::IVector const & v, std::vector<Enode *> const & vars) {
+    for (unsigned i = 0; i < vars.size(); i++) {
+        Enode * const var = vars[i];
+        b[var] = ibex::Interval(v[i].leftBound(), v[i].rightBound());
+        DREAL_LOG_INFO << "proejct_to_box: " << var << " : " << b[var];
+    }
+    return b;
 }
 
 void update_box_with_ivector(box & b, std::vector<Enode *> const & vars, capd::IVector iv) {
@@ -370,6 +391,8 @@ contractor_capd_fwd_full::~contractor_capd_fwd_full() {
 }
 
 bool compute_enclosures(capd::IOdeSolver & solver, capd::interval const & prevTime, capd::interval const T, unsigned const grid_size, vector<pair<capd::interval, capd::IVector>> & enclosures, bool add_all = false) {
+    DREAL_LOG_FATAL << "compute_enclosures";
+
     capd::interval const stepMade = solver.getStep();
     capd::IOdeSolver::SolutionCurve const & curve = solver.getCurve();
     capd::interval domain = capd::interval(0, 1) * stepMade;
@@ -390,7 +413,8 @@ bool compute_enclosures(capd::IOdeSolver & solver, capd::interval const & prevTi
         capd::IVector v = curve(subsetOfDomain);
         // TODO(soonhok): check invariant
         // if (!check_invariant(v, m_inv)) {
-        DREAL_LOG_INFO << "compute_enclosures:" << dt << "\t" << v;
+
+        DREAL_LOG_FATAL << "compute_enclosures:" << dt << "\t" << v;
         if (add_all || (T.leftBound() <= prevTime + subsetOfDomain.rightBound())) {
             enclosures.emplace_back(dt, v);
         }
@@ -445,6 +469,9 @@ box intersect_params(box & b, integral_constraint const & ic) {
     vector<Enode*> const & pars_t = ic.get_pars_t();
     capd::IVector X_0 = extract_ivector(b, pars_0);
     capd::IVector const & X_t = extract_ivector(b, pars_t);
+    DREAL_LOG_INFO << "intersect_params: ";
+    DREAL_LOG_INFO << "X_0 = " << X_0;
+    DREAL_LOG_INFO << "X_t = " << X_t;
     if (!intersection(X_0, X_t, X_0)) {
         // intersection is empty
         b.set_empty();
@@ -469,14 +496,18 @@ void set_params(T & f, box const & b, integral_constraint const & ic) {
 }
 
 box contractor_capd_fwd_full::prune(box b, SMTConfig &) const {
-    DREAL_LOG_INFO << "contractor_capd_fwd_full::prune";
+    DREAL_LOG_FATAL << "contractor_capd_fwd_full::prune";
+    DREAL_LOG_FATAL << b;
     integral_constraint const & ic = m_ctr->get_ic();
+    DREAL_LOG_INFO << "before intersect_params";
     b = intersect_params(b, ic);
     if (b.is_empty()) {
+        DREAL_LOG_FATAL << "contractor_capd_fwd_full::prune: return empty (due to intersect_params)";
         return b;
     }
     if (!m_solver) {
         // Trivial Case where there are only params and no real ODE vars.
+        DREAL_LOG_FATAL << "contractor_capd_fwd_full::prune: trivial return";
         return b;
     }
     set_params(*m_vectorField, b, ic);
@@ -487,9 +518,9 @@ box contractor_capd_fwd_full::prune(box b, SMTConfig &) const {
         ibex::Interval const & ibex_T = b[ic.get_time_t()];
         capd::interval m_T(ibex_T.lb(), ibex_T.ub());
 
-        DREAL_LOG_INFO << "X_0 : " << m_X_0;
-        DREAL_LOG_INFO << "X_t : " << m_X_t;
-        DREAL_LOG_INFO << "T   : " << m_T;
+        DREAL_LOG_FATAL << "X_0 : " << m_X_0;
+        DREAL_LOG_FATAL << "X_t : " << m_X_t;
+        DREAL_LOG_FATAL << "T   : " << m_T;
 
         capd::C0Rect2Set s(m_X_0);
         m_timeMap->stopAfterStep(true);
@@ -531,10 +562,16 @@ box contractor_capd_fwd_full::prune(box b, SMTConfig &) const {
         DREAL_LOG_INFO << "m_X_t : " << m_X_t;
         DREAL_LOG_INFO << "m_T   : " << m_T;
     } catch (capd::intervals::IntervalError<double> & e) {
+        DREAL_LOG_FATAL << "contractor_capd_fwd_full:: IntervalError: "
+                        << e.what();
         throw contractor_exception(e.what());
     } catch (capd::ISolverException & e) {
+        DREAL_LOG_FATAL << "contractor_capd_fwd_full:: ISolverException: "
+                        << e.what();
         throw contractor_exception(e.what());
     }
+    DREAL_LOG_FATAL << "contractor_capd_fwd_full:: return at the end "
+                    << "result = " << boolalpha << (!b.is_empty());
     return b;
 }
 
