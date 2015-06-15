@@ -352,14 +352,13 @@ contractor_capd_fwd_full::contractor_capd_fwd_full(box const & box, ode_constrai
         // Trivial Case with all params and no ODE variables
     }
 
-    // TODO(soonhok): Setup Input and Output
-    // Input X_0, X_T, and Time
-    // for (unsigned i = 0; i <  input->size(); i++) {
-    //     if ((*input)[i]) {
-    //         m_input.add(box.get_index(m_var_array[i].name));
-    //     }
-    // }
-    // Output X_T and Time
+    // Input: X_0, X_T, and Time
+    m_input  = ibex::BitSet::empty(box.size());
+    for (Enode * e : ctr->get_ic().get_enode()->get_vars()) {
+        m_input.add(box.get_index(e));
+    }
+    // Output: Empty
+    m_output = ibex::BitSet::empty(box.size());
     m_used_constraints.insert(m_ctr);
 }
 
@@ -459,12 +458,18 @@ void set_params(T & f, box const & b, integral_constraint const & ic) {
     }
 }
 
-box contractor_capd_fwd_full::prune(box b, SMTConfig &) const {
-    DREAL_LOG_INFO << "contractor_capd_fwd_full::prune";
+box contractor_capd_fwd_full::prune(box b, SMTConfig & config) const {
+    static thread_local box old_box(b);
+    old_box = b;
+    DREAL_LOG_DEBUG << "contractor_capd_fwd_full::prune";
     integral_constraint const & ic = m_ctr->get_ic();
     b = intersect_params(b, ic);
-
-    if (b.is_empty() || !m_solver) {
+    if (b.is_empty()) {
+        m_output  = ibex::BitSet::all(b.size());
+        return b;
+    }
+    m_output  = ibex::BitSet::empty(b.size());
+    if (!m_solver) {
         // Trivial Case where there are only params and no real ODE vars.
         return b;
     }
@@ -521,6 +526,12 @@ box contractor_capd_fwd_full::prune(box b, SMTConfig &) const {
         throw contractor_exception(e.what());
     } catch (capd::ISolverException & e) {
         throw contractor_exception(e.what());
+    }
+    vector<bool> diff_dims = b.diff_dims(old_box);
+    for (unsigned i = 0; i < diff_dims.size(); i++) {
+        if (diff_dims[i]) {
+            m_output.add(i);
+        }
     }
     return b;
 }
@@ -623,7 +634,7 @@ ostream & contractor_capd_bwd_simple::display(ostream & out) const {
     return out;
 }
 
-contractor_capd_bwd_full::contractor_capd_bwd_full(box const & /*box*/, ode_constraint const * const ctr, unsigned const taylor_order, unsigned const grid_size)
+contractor_capd_bwd_full::contractor_capd_bwd_full(box const & box, ode_constraint const * const ctr, unsigned const taylor_order, unsigned const grid_size)
     : contractor_cell(contractor_kind::CAPD_BWD), m_ctr(ctr), m_taylor_order(taylor_order), m_grid_size(grid_size) {
     DREAL_LOG_INFO << "contractor_capd_bwd_full::contractor_capd_bwd_full()";
     integral_constraint const & ic = m_ctr->get_ic();
@@ -636,7 +647,14 @@ contractor_capd_bwd_full::contractor_capd_bwd_full(box const & /*box*/, ode_cons
     } else {
         // Trivial Case with all params and no ODE variables
     }
-    // TODO(soonhok): Setup Input and Output
+
+    // Input: X_0, X_T, and Time
+    m_input  = ibex::BitSet::empty(box.size());
+    for (Enode * e : ctr->get_ic().get_enode()->get_vars()) {
+        m_input.add(box.get_index(e));
+    }
+    // Output: Empty
+    m_output = ibex::BitSet::empty(box.size());
     m_used_constraints.insert(m_ctr);
 }
 
@@ -646,10 +664,17 @@ contractor_capd_bwd_full::~contractor_capd_bwd_full() {
     delete m_vectorField;
 }
 
-box contractor_capd_bwd_full::prune(box b, SMTConfig &) const {
-    DREAL_LOG_INFO << "contractor_capd_bwd_full::prune";
+box contractor_capd_bwd_full::prune(box b, SMTConfig & config) const {
+    static thread_local box old_box(b);
+    old_box = b;
+    DREAL_LOG_DEBUG << "contractor_capd_bwd_full::prune";
     integral_constraint const & ic = m_ctr->get_ic();
     b = intersect_params(b, ic);
+    if (b.is_empty()) {
+        m_output  = ibex::BitSet::all(b.size());
+        return b;
+    }
+    m_output  = ibex::BitSet::empty(b.size());
     if (!m_solver) {
         // Trivial Case where there are only params and no real ODE vars.
         return b;
@@ -707,6 +732,12 @@ box contractor_capd_bwd_full::prune(box b, SMTConfig &) const {
         throw contractor_exception(e.what());
     } catch (capd::ISolverException & e) {
         throw contractor_exception(e.what());
+    }
+    vector<bool> diff_dims = b.diff_dims(old_box);
+    for (unsigned i = 0; i < diff_dims.size(); i++) {
+        if (diff_dims[i]) {
+            m_output.add(i);
+        }
     }
     return b;
 }
