@@ -216,6 +216,7 @@ struct SMTConfig
 
   void inc_icp_decisions() { nra_icp_decisions++; }
   int  icp_decisions() { return nra_icp_decisions; }
+  bool         nra_worklist_fp;               // use worklist fixpoint algorithm
 
 private:
 
