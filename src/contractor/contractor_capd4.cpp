@@ -20,6 +20,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 *********************************************************************/
 
 #include <algorithm>
+#include <exception>
 #include <functional>
 #include <initializer_list>
 #include <list>
@@ -47,6 +48,8 @@ using std::list;
 using std::string;
 using std::unordered_set;
 using std::vector;
+using std::logic_error;
+using std::exception;
 using nlohmann::json;
 
 namespace dreal {
@@ -210,11 +213,11 @@ string subst(Enode const * const e, unordered_map<string, string> subst_map) {
             ret += "]";
         }
     } else if (e->isDef()) {
-        throw std::logic_error("unreachable");
+        throw logic_error("unreachable");
     } else if (e->isEnil()) {
-        throw std::logic_error("unreachable");
+        throw logic_error("unreachable");
     } else {
-        throw std::logic_error("unreachable");
+        throw logic_error("unreachable");
     }
     return ret;
 }
@@ -280,7 +283,7 @@ string build_capd_string(integral_constraint const & ic, bool forward = true) {
     return diff_var + diff_par + diff_fun;
 }
 
-capd::IVector extract_ivector(box const & b, std::vector<Enode *> const & vars) {
+capd::IVector extract_ivector(box const & b, vector<Enode *> const & vars) {
     capd::IVector intvs(vars.size());
     for (unsigned i = 0; i < vars.size(); i++) {
         Enode * const var = vars[i];
@@ -290,8 +293,7 @@ capd::IVector extract_ivector(box const & b, std::vector<Enode *> const & vars) 
     return intvs;
 }
 
-void update_box_with_ivector(box & b, std::vector<Enode *> const & vars, capd::IVector iv) {
-    DREAL_LOG_INFO << "update_box_with_ivector: [before update]";
+void update_box_with_ivector(box & b, vector<Enode *> const & vars, capd::IVector iv) {
     capd::IVector intvs(vars.size());
     for (unsigned i = 0; i < vars.size(); i++) {
         b[vars[i]] = ibex::Interval(iv[i].leftBound(), iv[i].rightBound());
@@ -611,7 +613,7 @@ json contractor_capd_fwd_full::generate_trace(box b, SMTConfig &) const {
         throw contractor_exception(e.what());
     } catch (capd::ISolverException & e) {
         throw contractor_exception(e.what());
-    } catch (std::exception & e) {
+    } catch (exception & e) {
         throw contractor_exception(e.what());
     }
 }
