@@ -206,9 +206,9 @@ struct SMTConfig
   bool         nra_simp;                      // use simplification in preprocessing
   bool         nra_ncbt;                      // use nonchronological backtracking in icp
   int          nra_output_num_nodes;          // output number of SAT and ICP nodes
-  string       nra_plan_heuristic;            // use the plan heuristic from file
-  string       nra_plan_domain;               // planning domain
-  string       nra_plan_problem;              // planning instance
+  std::string  nra_plan_heuristic;            // use the plan heuristic from file
+  std::string  nra_plan_domain;               // planning domain
+  std::string  nra_plan_problem;              // planning instance
   int          nra_icp_decisions;             // number of icp branch nodes
 
   void inc_icp_decisions() { nra_icp_decisions++; }

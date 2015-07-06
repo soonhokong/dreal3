@@ -27,7 +27,6 @@ along with OpenSMT. If not, see <http://www.gnu.org/licenses/>.
 #include "egraph/SigTab.h"
 #include "common/SplayTree.h"
 #include "util/flow.h"
-#include "util/logging.h"
 
 #ifdef PRODUCE_PROOF
 #include "proof/UFInterpolator.h"
