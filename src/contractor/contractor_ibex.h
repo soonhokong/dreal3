@@ -36,10 +36,10 @@ namespace dreal {
 
 class contractor_ibex_fwdbwd : public contractor_cell {
 private:
-    nonlinear_constraint const * m_ctr;
-    ibex::NumConstraint const * m_numctr;
+    std::shared_ptr<nonlinear_constraint const> m_ctr;
+    std::shared_ptr<ibex::NumConstraint const>  m_numctr;
     ibex::Array<ibex::ExprSymbol const> const & m_var_array;
-    ibex::CtcFwdBwd * m_ctc = nullptr;
+    std::unique_ptr<ibex::CtcFwdBwd> m_ctc;
 
 public:
     contractor_ibex_fwdbwd(box const & box, nonlinear_constraint const * const ctr);

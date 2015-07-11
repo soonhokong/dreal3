@@ -135,9 +135,6 @@ nonlinear_constraint::nonlinear_constraint(Enode * const e, lbool p, std::unorde
 }
 
 nonlinear_constraint::~nonlinear_constraint() noexcept {
-    delete m_numctr;
-    delete m_numctr_ineq;
-    delete m_exprctr;
 }
 ostream & nonlinear_constraint::display(ostream & out) const {
     out << "nonlinear_constraint ";

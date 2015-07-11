@@ -56,7 +56,7 @@ protected:
     contractor_kind m_kind;
     mutable ibex::BitSet m_input;
     mutable ibex::BitSet m_output;
-    mutable std::unordered_set<constraint const *> m_used_constraints;
+    mutable std::unordered_set<std::shared_ptr<constraint const>> m_used_constraints;
 public:
     explicit contractor_cell(contractor_kind kind) : m_kind(kind) { }
     contractor_cell(contractor_kind kind, unsigned n)
@@ -64,7 +64,7 @@ public:
     virtual ~contractor_cell() noexcept { }
     inline ibex::BitSet input()  const { return m_input; }
     inline ibex::BitSet output() const { return m_output; }
-    inline std::unordered_set<constraint const *> used_constraints() const { return m_used_constraints; }
+    inline std::unordered_set<std::shared_ptr<constraint const>> used_constraints() const { return m_used_constraints; }
     virtual box prune(box b, SMTConfig & config) const = 0;
     virtual std::ostream & display(std::ostream & out) const = 0;
 };
@@ -99,7 +99,7 @@ public:
 
     inline ibex::BitSet input() const { return m_ptr->input(); }
     inline ibex::BitSet output() const { return m_ptr->output(); }
-    inline std::unordered_set<constraint const *> used_constraints() const { return m_ptr->used_constraints(); }
+    inline std::unordered_set<std::shared_ptr<constraint const>> used_constraints() const { return m_ptr->used_constraints(); }
     inline box prune(box const & b, SMTConfig & config) const {
         assert(m_ptr != nullptr);
         return m_ptr->prune(b, config).shrink_bounds();
