@@ -139,7 +139,7 @@ contractor_ibex_fwdbwd::contractor_ibex_fwdbwd(box const & box, nonlinear_constr
     : contractor_cell(contractor_kind::IBEX_FWDBWD, box.size()), m_ctr(ctr),
       m_numctr(ctr->get_numctr()), m_var_array(ctr->get_var_array()) {
     if (m_numctr) {
-        m_ctc = new ibex::CtcFwdBwd(*m_numctr);
+        m_ctc = make_unique(new ibex::CtcFwdBwd(*m_numctr));
         // Set up input
         ibex::BitSet const * const input = m_ctc->input;
         for (unsigned i = 0; i <  input->size(); i++) {
@@ -149,9 +149,6 @@ contractor_ibex_fwdbwd::contractor_ibex_fwdbwd(box const & box, nonlinear_constr
         }
         m_used_constraints.insert(m_ctr);
     }
-}
-contractor_ibex_fwdbwd::~contractor_ibex_fwdbwd() {
-    delete m_ctc;
 }
 box contractor_ibex_fwdbwd::prune(box b, SMTConfig & config) const {
     DREAL_LOG_DEBUG << "contractor_ibex_fwdbwd::prune";

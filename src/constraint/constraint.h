@@ -62,11 +62,11 @@ std::ostream & operator<<(ostream & out, constraint const & c);
 
 class nonlinear_constraint : public constraint {
 private:
-    ibex::ExprCtr const *                    m_exprctr;
-    ibex::NumConstraint const *              m_numctr;
-    ibex::NumConstraint const *              m_numctr_ineq;
-    ibex::Array<ibex::ExprSymbol const>      m_var_array;
-    std::unordered_map<Enode*, double> const m_subst;
+    std::shared_ptr<ibex::ExprCtr const>       m_exprctr;
+    std::shared_ptr<ibex::NumConstraint const> m_numctr;
+    std::shared_ptr<ibex::NumConstraint const> m_numctr_ineq;
+    ibex::Array<ibex::ExprSymbol const>        m_var_array;
+    std::unordered_map<Enode*, double> const   m_subst;
 
     std::pair<lbool, ibex::Interval> eval(ibex::IntervalVector const & iv) const;
 
@@ -75,8 +75,8 @@ public:
     virtual ~nonlinear_constraint() noexcept;
     virtual std::ostream & display(std::ostream & out) const;
     std::pair<lbool, ibex::Interval> eval(box const & b) const;
-    inline ibex::ExprCtr const * get_exprctr() const { return m_exprctr; }
-    inline ibex::NumConstraint const * get_numctr() const { return m_numctr; }
+    inline shared_ptr<ibex::ExprCtr const> get_exprctr() const { return m_exprctr; }
+    inline shared_ptr<ibex::NumConstraint const> get_numctr() const { return m_numctr; }
     ibex::Array<ibex::ExprSymbol const> const & get_var_array() const { return m_var_array; }
     inline Enode * get_enode() const { return get_enodes()[0]; }
 };
