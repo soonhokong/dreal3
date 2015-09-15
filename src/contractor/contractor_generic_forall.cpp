@@ -374,6 +374,13 @@ box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_
             e = e->get1st();
             polarity = !polarity;
         }
+        if (e->isAnd() || e->isOr()) {
+            // TODO(soonhok): for now it doen't support boolean structure
+            //                need to generalize it later.
+            cerr << "HERE!" << endl;
+            counterexample.set_empty();
+            return counterexample;
+        }
         nonlinear_constraint ctr(e, polarity);
         auto numctr = ctr.get_numctr();
 
@@ -435,17 +442,17 @@ box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_v
 box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) const {
     // static unsigned under_approx = 0;
     // static unsigned over_approx = 0;
-    box counterexample = find_CE_via_underapprox(b, forall_vars, vec, p, config);
-    if (!counterexample.is_empty()) {
-        // ++under_approx;
-        // cerr << "WE USE UNDERAPPROX: " << under_approx << "/" << over_approx<< "/" << (under_approx + over_approx) << endl;
-    } else {
-        counterexample = find_CE_via_overapprox(b, forall_vars, vec, p, config);
+    // box counterexample = find_CE_via_underapprox(b, forall_vars, vec, p, config);
+    // if (!counterexample.is_empty()) {
+    //     // ++under_approx;
+    //     // cerr << "WE USE UNDERAPPROX: " << under_approx << "/" << over_approx<< "/" << (under_approx + over_approx) << endl;
+    // } else {
+    box counterexample = find_CE_via_overapprox(b, forall_vars, vec, p, config);
         // ++over_approx;
         // cerr << "WE USE FULL       : " << under_approx << "/" << over_approx << "/" << (under_approx + over_approx)
         //      << " " << counterexample.is_empty()
         //      << endl;
-    }
+    // }
     if (!counterexample.is_empty() && config.nra_local_opt) {
         return refine_CE_with_nlopt(counterexample, vec);
     }
@@ -470,6 +477,10 @@ box contractor_generic_forall::handle_disjunction(box b, vector<Enode *> const &
         //         Pass it to icp::solve
 
         box counterexample = find_CE(b, forall_vars, vec, p, config);
+        cerr << "===================" << endl
+             << "CE: " << endl
+             << counterexample << endl
+             << "===================" << endl << endl;
         if (counterexample.is_empty()) {
             // Step 2.1. (NO Counterexample)
             //           Return B.

@@ -188,9 +188,9 @@ Enode * make_vec_to_list(OpenSMTContext & ctx, vector<Enode *> v) {
     return ctx.mkCons(args);
 }
 
-int process_main(OpenSMTContext & ctx, config const & config, vector<Enode *> const & costs, unordered_map<string, Enode*> var_map, vector<Enode *> const & ctrs_X);
+int process_main(OpenSMTContext & ctx, config const & config, vector<Enode *> const & costs, unordered_map<string, Enode*> var_map, vector<Enode *> const & ctrs_X, stat & s);
 
-int process_baron(config const & config) {
+int process_baron(config const & config, stat & s) {
     FILE * fin = nullptr;
     string filename = config.get_filename();
     // Make sure file exists
@@ -211,14 +211,14 @@ int process_baron(config const & config) {
     unordered_map<string, Enode *> var_map = baron_var_map;
     Enode * const cost_fn = baron_cost_fn;
     vector<Enode *> & ctrs_X = baron_ctrs;
-    int const ret = process_main(ctx, config, {cost_fn}, var_map, ctrs_X);
+    int const ret = process_main(ctx, config, {cost_fn}, var_map, ctrs_X, s);
     ::baronlex_destroy();
     fclose(fin);
     ::baron_cleanup_parser();
     return ret;
 }
 
-int process_dop(config const & config) {
+int process_dop(config const & config, stat & s) {
     FILE * fin = nullptr;
     string filename = config.get_filename();
     // Make sure file exists
@@ -242,14 +242,14 @@ int process_dop(config const & config) {
     unordered_map<string, Enode *> var_map = dop_var_map;
     vector<Enode *> & costs = dop_costs;
     vector<Enode *> & ctrs_X = dop_ctrs;
-    int const ret = process_main(ctx, config, costs, var_map, ctrs_X);
+    int const ret = process_main(ctx, config, costs, var_map, ctrs_X, s);
     ::doplex_destroy();
     fclose(fin);
     ::dop_cleanup_parser();
     return ret;
 }
 
-int process_bch(config const & config) {
+int process_bch(config const & config, stat & s) {
     FILE * fin = nullptr;
     string filename = config.get_filename();
     // Make sure file exists
@@ -270,7 +270,7 @@ int process_bch(config const & config) {
     unordered_map<string, Enode *> var_map = bch_var_map;
     vector<Enode *> & costs = bch_costs;
     vector<Enode *> & ctrs_X = bch_ctrs;
-    int const ret = process_main(ctx, config, costs, var_map, ctrs_X);
+    int const ret = process_main(ctx, config, costs, var_map, ctrs_X, s);
     ::bchlex_destroy();
     fclose(fin);
     ::bch_cleanup_parser();
@@ -281,7 +281,8 @@ int process_main(OpenSMTContext & ctx,
                  config const & config,
                  vector<Enode *> const & costs,
                  unordered_map<string, Enode*> var_map,
-                 vector<Enode *> const & ctrs_X) {
+                 vector<Enode *> const & ctrs_X,
+                 stat & s) {
     // minimize cost_i(x)
     // satisfying ctr_j(x)
     //

@@ -18,18 +18,39 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 *********************************************************************/
 
 #include "tools/dop/process.h"
+#include "tools/dop/stat.h"
+#include <chrono>
+#include <iostream>
+
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::ostream;
+
+ostream & print_stat(ostream & out) {
+    return out;
+}
 
 int main(int argc, const char * argv[]) {
+    dop::stat s(cout);
 #ifdef LOGGING
     START_EASYLOGGINGPP(argc, argv);
 #endif
     dop::config config(argc, argv);
+    int ret = 0;
     switch (config.get_type()) {
     case dop::type::DOP:
-        return dop::process_dop(config);
+        ret = dop::process_dop(config, s);
+        break;
     case dop::type::BARON:
-        return dop::process_baron(config);
+        ret = dop::process_baron(config, s);
+        break;
     case dop::type::BCH:
-        return dop::process_bch(config);
+        ret = dop::process_bch(config, s);
+        break;
     }
+    if(config.get_stat()) {
+        s.print();
+    }
+    return ret;
 }

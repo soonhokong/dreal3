@@ -20,9 +20,10 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include "tools/dop/dopconfig.h"
+#include "tools/dop/stat.h"
 
 namespace dop {
-int process_baron(config const & config);
-int process_dop(config const & config);
-int process_bch(config const & config);
+int process_baron(config const & config, stat & s);
+int process_dop(config const & config, stat & s);
+int process_bch(config const & config, stat & s);
 }  // namespace dop
