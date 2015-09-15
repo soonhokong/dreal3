@@ -363,11 +363,7 @@ box shrink_for_dop(box b) {
     return b;
 }
 
-box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) {
-    box counterexample(b, forall_vars);
-    if (config.nra_shrink_for_dop) {
-        counterexample = shrink_for_dop(counterexample);
-    }
+box find_CE_via_underapprox_core(box counterexample, vector<Enode*> const & vec, bool const p, SMTConfig & config) {
     for (Enode * e : vec) {
         lbool polarity = p ? l_False : l_True;
         if (e->isNot()) {
@@ -377,7 +373,6 @@ box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_
         if (e->isAnd() || e->isOr()) {
             // TODO(soonhok): for now it doen't support boolean structure
             //                need to generalize it later.
-            cerr << "HERE!" << endl;
             counterexample.set_empty();
             return counterexample;
         }
@@ -391,11 +386,11 @@ box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_
             iv[i] = counterexample[var_array[i].name];
         }
         if (numctr->op == ibex::CmpOp::GT || numctr->op == ibex::CmpOp::GEQ) {
-            numctr->f.ibwd(ibex::Interval(-config.nra_precision, POS_INFINITY), iv);
+            numctr->f.ibwd(ibex::Interval(0, POS_INFINITY), iv);
         } else if (numctr->op == ibex::CmpOp::LT || numctr->op == ibex::CmpOp::LEQ) {
-            numctr->f.ibwd(ibex::Interval(NEG_INFINITY, config.nra_precision), iv);
+            numctr->f.ibwd(ibex::Interval(NEG_INFINITY, 0), iv);
         } else if (numctr->op == ibex::CmpOp::EQ) {
-            numctr->f.ibwd(ibex::Interval(-config.nra_precision, config.nra_precision), iv);
+            numctr->f.ibwd(ibex::Interval(0, 0.0), iv);
         } else {
             throw runtime_error("??");
         }
@@ -405,11 +400,19 @@ box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_
         } else {
             // Reconstruct box b from pruned result iv.
             for (int i = 0; i < var_array.size(); i++) {
-                counterexample[var_array[i].name] = iv[i];
+                counterexample[var_array[i].name] = iv[i].mid();
             }
         }
     }
     return counterexample;
+}
+
+box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) {
+    box counterexample(b, forall_vars);
+    if (config.nra_shrink_for_dop) {
+        counterexample = shrink_for_dop(counterexample);
+    }
+    return find_CE_via_underapprox_core(counterexample, vec, p, config);
 }
 
 box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) {
@@ -429,9 +432,7 @@ box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_v
         ctcs.push_back(ctc);
     }
     contractor fp = mk_contractor_fixpoint(term_cond, ctcs);
-    // double const prec = std::max(b.max_diam() / 10.0, config.nra_precision);
     double const prec = config.nra_precision;
-    // cerr << "find CE, prec = " << prec << endl;
     counterexample = random_icp::solve(counterexample, fp, config, prec);
     for (auto ctr : ctrs) {
         delete ctr;
@@ -440,19 +441,19 @@ box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_v
 }
 
 box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) const {
-    // static unsigned under_approx = 0;
-    // static unsigned over_approx = 0;
-    // box counterexample = find_CE_via_underapprox(b, forall_vars, vec, p, config);
-    // if (!counterexample.is_empty()) {
-    //     // ++under_approx;
-    //     // cerr << "WE USE UNDERAPPROX: " << under_approx << "/" << over_approx<< "/" << (under_approx + over_approx) << endl;
-    // } else {
-    box counterexample = find_CE_via_overapprox(b, forall_vars, vec, p, config);
-        // ++over_approx;
-        // cerr << "WE USE FULL       : " << under_approx << "/" << over_approx << "/" << (under_approx + over_approx)
-        //      << " " << counterexample.is_empty()
-        //      << endl;
-    // }
+    static unsigned under_approx = 0;
+    static unsigned over_approx = 0;
+    box counterexample = find_CE_via_underapprox(b, forall_vars, vec, p, config);
+    if (!counterexample.is_empty()) {
+        ++under_approx;
+        cerr << "WE USE UNDERAPPROX: " << under_approx << "/" << over_approx<< "/" << (under_approx + over_approx) << endl;
+    } else {
+        counterexample = find_CE_via_overapprox(b, forall_vars, vec, p, config);
+        ++over_approx;
+        cerr << "WE USE FULL       : " << under_approx << "/" << over_approx << "/" << (under_approx + over_approx)
+             << " " << counterexample.is_empty()
+             << endl;
+    }
     if (!counterexample.is_empty() && config.nra_local_opt) {
         return refine_CE_with_nlopt(counterexample, vec);
     }
@@ -477,10 +478,10 @@ box contractor_generic_forall::handle_disjunction(box b, vector<Enode *> const &
         //         Pass it to icp::solve
 
         box counterexample = find_CE(b, forall_vars, vec, p, config);
-        cerr << "===================" << endl
-             << "CE: " << endl
-             << counterexample << endl
-             << "===================" << endl << endl;
+        // cerr << "===================" << endl
+        //      << "CE: " << endl
+        //      << counterexample << endl
+        //      << "===================" << endl << endl;
         if (counterexample.is_empty()) {
             // Step 2.1. (NO Counterexample)
             //           Return B.
@@ -505,6 +506,7 @@ box contractor_generic_forall::handle_disjunction(box b, vector<Enode *> const &
     vector<box> boxes;
     for (Enode * e : vec) {
         if (!e->get_exist_vars().empty()) {
+            cerr << "Process : " << e << endl;
             lbool polarity = p ? l_True : l_False;
             if (e->isNot()) {
                 polarity = !polarity;
@@ -521,9 +523,14 @@ box contractor_generic_forall::handle_disjunction(box b, vector<Enode *> const &
                 box const bt = ctc.prune(b, config);
                 boxes.emplace_back(bt);
             }
+        } else {
+            cerr << "Not Process : " << e << endl;
         }
     }
     b = hull(boxes);
+    cerr << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl
+         << "After handle_disjunction: " << b << endl
+         << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl << endl;
     return b;
 }
 
@@ -533,15 +540,24 @@ box contractor_generic_forall::handle_conjunction(box b, vector<Enode *> const &
         DREAL_LOG_DEBUG << "process conjunction element : " << e << endl;
         b = handle(b, e, p, config);
         if (b.is_empty()) {
+            DREAL_LOG_DEBUG << e << " gives an empty box" << endl;
             return b;
         }
     }
+    // cerr << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl
+    //      << "After handle_conjunction: " << b << endl
+    //      << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl << endl;
     return b;
 }
 box contractor_generic_forall::handle_atomic(box b, Enode * body, bool const p, SMTConfig & config) const {
     vector<Enode*> vec;
     vec.push_back(body);
-    return handle_disjunction(b, vec, p, config);
+    b = handle_disjunction(b, vec, p, config);
+    // cerr << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl
+    //      << "After handle_atomic: " << b << endl
+    //      << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl << endl;
+    return b;
+
 }
 
 box contractor_generic_forall::prune(box b, SMTConfig & config) const {
@@ -549,6 +565,9 @@ box contractor_generic_forall::prune(box b, SMTConfig & config) const {
     Enode * body = m_ctr->get_body();
     DREAL_LOG_DEBUG << "body = " << body << endl;
     b = handle(b, body, true, config);
+    cerr << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl
+         << "generic_forall::prune " << b << endl
+         << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl << endl;
     return b;
 }
 

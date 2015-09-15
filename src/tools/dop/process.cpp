@@ -297,18 +297,20 @@ int process_main(OpenSMTContext & ctx,
     //
     //              /\ forall y. [\/ !ctr_j(y) \/ min_i <= cost_i(y))]
     //                             j            i
+    cout << "Precision  : " << ctx.getPrecision() << endl;
     vector<Enode *> or_ctrs;
     for (Enode * ctr_X : ctrs_X) {
         Enode * ctr_not_Y = ctx.mkNot(ctx.mkCons(subst_exist_vars_to_univerally_quantified(ctx, var_map, ctr_X)));  // ctr(y)
         or_ctrs.push_back(ctr_not_Y);
+        cout << "Constraint : " << ctr_X << endl;
+        ctx.Assert(ctr_X);
     }
 
-    vector<Enode*> eq_costs;
     for (unsigned i = 0; i < costs.size(); ++i) {
         Enode * min_var_i = make_min_var(ctx, var_map, i);                      // min
         Enode * eq_cost  = make_eq_cost(ctx, costs[i], min_var_i);              // cost_i(x) = min_i
         Enode * leq_cost = make_leq_cost(ctx, var_map, costs[i], min_var_i);    // min <= costs[0](y)
-        eq_costs.push_back(eq_cost);
+        ctx.Assert(eq_cost);
         or_ctrs.push_back(leq_cost);
     }
 
@@ -320,7 +322,6 @@ int process_main(OpenSMTContext & ctx,
         sorted_var_list.push_back(p);
     }
     Enode * quantified = ctx.mkForall(sorted_var_list, or_term);
-    cout << "Precision  : " << ctx.getPrecision() << endl;
     for (auto var : var_map) {
         cout << "Variable   : " << var.first
              << " in [" << var.second->getDomainLowerBound() << ", "
@@ -328,15 +329,6 @@ int process_main(OpenSMTContext & ctx,
     }
     for (Enode * cost : costs) {
         cout << "Minimize   : " << cost << endl;
-    }
-    for (Enode * ctr_X : ctrs_X) {
-        cout << "Constraint : " << ctr_X << endl;
-    }
-    for (Enode * eq_cost : eq_costs) {
-        ctx.Assert(eq_cost);
-    }
-    for (Enode * ctr_X : ctrs_X) {
-        ctx.Assert(ctr_X);
     }
     ctx.Assert(quantified);
     auto result = ctx.CheckSAT();

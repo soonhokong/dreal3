@@ -232,8 +232,8 @@ contractor nra_solver::build_contractor(box const & box, scoped_vec<constraint *
     vector<nonlinear_constraint const *> nl_ctrs;
     vector<contractor> nl_ctcs;
     nl_ctcs.reserve(ctrs.size());
-    vector<contractor> nl_eval_ctcs;
-    nl_eval_ctcs.reserve(ctrs.size());
+    // vector<contractor> nl_eval_ctcs;
+    // nl_eval_ctcs.reserve(ctrs.size());
     vector<contractor> ode_ctcs;
     ode_ctcs.reserve(ctrs.size());
     vector<contractor> forall_ctcs;
@@ -254,7 +254,7 @@ contractor nra_solver::build_contractor(box const & box, scoped_vec<constraint *
             } else {
                 // This is identity, do nothing
             }
-            nl_eval_ctcs.push_back(mk_contractor_eval(box, nl_ctr));
+            // nl_eval_ctcs.push_back(mk_contractor_eval(box, nl_ctr));
             break;
         }
 #ifdef SUPPORT_ODE
@@ -320,10 +320,10 @@ contractor nra_solver::build_contractor(box const & box, scoped_vec<constraint *
     };
     if (complete && ode_ctcs.size() > 0) {
         return mk_contractor_fixpoint(term_cond,
-                                      {nl_ctcs, forall_ctcs, generic_forall_ctcs, ode_ctcs, nl_eval_ctcs});
+                                      {nl_ctcs, forall_ctcs, generic_forall_ctcs, ode_ctcs/*, nl_eval_ctcs*/});
     } else {
         return mk_contractor_fixpoint(term_cond,
-                                      {nl_ctcs, forall_ctcs, generic_forall_ctcs, nl_eval_ctcs});
+                                      {nl_ctcs, forall_ctcs, generic_forall_ctcs/*, nl_eval_ctcs*/});
     }
 }
 
