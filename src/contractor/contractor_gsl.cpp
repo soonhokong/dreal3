@@ -303,34 +303,38 @@ void contractor_gsl::prune(box & b, SMTConfig & config) {
     gsl_odeiv2_step_reset(m_step);
     gsl_odeiv2_evolve_reset(m_evolve);
 
-    double const T_lb = b[m_time_t].lb();
+    double const T_lb = max(0.0, std::nexttoward(b[m_time_t].lb(), 0.0));
     double const T_ub = b[m_time_t].ub();
     double t = 0.0, old_t = 0.0;                  /* initialize t */
     double T_next = 0.0;
     double h = 1e-10;              /* starting step size for ode solver */
-    DREAL_LOG_INFO << "GSL: prune begin "
+    DREAL_LOG_FATAL << "GSL: prune begin "
                    << m_time_t << " = ["
                    << T_lb << ", " << T_ub << "]"
                    << "\t" << b.max_diam();
-    DREAL_LOG_INFO << m_ctr->get_ic();
 
-    if (b.max_diam() < config.nra_precision) {
-        return;
-    }
-    bool need_to_run = false;
-    for (Enode * e : m_vars_0) {
-        if (b[e].diam() > config.nra_precision) {
-            need_to_run = true;
-            break;
-        }
-    }
-    if (b[m_time_t].diam() > config.nra_precision) {
-        need_to_run = true;
-    }
-    if (!need_to_run) { return; }
+    // if (b.max_diam() < config.nra_precision) {
+    //     DREAL_LOG_FATAL << "exit1";
+    //     return;
+    // }
+    // bool need_to_run = false;
+    // for (Enode * e : m_vars_0) {
+    //     if (b[e].diam() > config.nra_precision) {
+    //         need_to_run = true;
+    //         break;
+    //     }
+    // }
+    // if (b[m_time_t].diam() > config.nra_precision) {
+    //     need_to_run = true;
+    // }
+    // if (!need_to_run) {
+    //     DREAL_LOG_FATAL << "exit2";
+    //     return;
+    // }
 
-    extract_sample_point(b, m_vars_0, m_values);
-    extract_sample_point(b, m_pars_0, m_params);
+    extract_sample_point(b, m_vars_0, m_values);  // sample m_vars_0 in b ==> m_values
+    extract_sample_point(b, m_pars_0, m_params);  // sample m_pars_0 in b ==> m_params
+    // Update b with the sampled m_values & m_params
     for (unsigned i = 0; i < m_vars_0.size(); i++) {
         b[m_vars_0[i]] = m_values[i];
     }
@@ -354,6 +358,9 @@ void contractor_gsl::prune(box & b, SMTConfig & config) {
     }
 
     // Now we're in the range in [T_lb, T_ub], need to check m_values.
+    DREAL_LOG_FATAL << T_lb << " "
+                    << t << " "
+                    << T_ub;
     while (t < T_ub) {
         interruption_point();
         T_next = min(t + config.nra_precision, T_ub);
@@ -373,7 +380,7 @@ void contractor_gsl::prune(box & b, SMTConfig & config) {
             throw contractor_exception("GSL FAILED");
         }
 
-        // print_values(t, m_values, m_dim);         /* print at t */
+        print_values(t, m_values, m_dim);         /* print at t */
         bool values_good = true;
         unsigned i = 0;
         for (Enode * e : m_vars_t) {
@@ -384,7 +391,7 @@ void contractor_gsl::prune(box & b, SMTConfig & config) {
             iv &= iv_X_t;
             if (iv.is_empty()) {
                 values_good = false;
-                DREAL_LOG_INFO << "GSL Not in Range: " << e
+                DREAL_LOG_FATAL << "GSL Not in Range: " << e
                                 << " : " << m_values[i] << " not in " << b[e] << " at t = " << t;
                 break;
             }
@@ -412,15 +419,15 @@ void contractor_gsl::prune(box & b, SMTConfig & config) {
             b[m_time_t] = new_t;
             m_eval_ctc.prune(b, config);
             if (!b.is_empty()) {
-                DREAL_LOG_INFO << "This box satisfies other non-linear constraints";
+                DREAL_LOG_FATAL << "This box satisfies other non-linear constraints";
                 return;
             } else {
-                DREAL_LOG_INFO << "This box failed to satisfy other non-linear constraints";
+                DREAL_LOG_FATAL << "This box failed to satisfy other non-linear constraints";
                 b = old_box;
             }
         }
     }
-    DREAL_LOG_INFO << "GSL failed in the end";
+    DREAL_LOG_FATAL << "GSL failed in the end";
     throw contractor_exception("GSL failed");
 }
 
