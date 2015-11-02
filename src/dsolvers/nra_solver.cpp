@@ -440,7 +440,12 @@ bool nra_solver::check(bool complete) {
     } else {
         // Incomplete Check ==> Prune Only
         try {
-            m_ctc.prune(m_box, config);
+            thread_local static vector<box> bin;
+            bin.clear();
+            m_ctc.prune(m_box, config, bin);
+            if (bin.size() > 0) {
+                m_box.hull(bin);
+            }
             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
         } catch (contractor_exception & e) {
             // Do nothing

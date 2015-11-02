@@ -91,7 +91,7 @@ contractor_parallel_all::contractor_parallel_all(vector<contractor> const & v)
 contractor_parallel_all::contractor_parallel_all(contractor const & c1, contractor const & c2)
     : contractor_cell(contractor_kind::PARALLEL_ALL), m_vec(1, c1) { m_vec.push_back(c2); }
 
-void contractor_parallel_all::prune(box & b, SMTConfig & config) {
+void contractor_parallel_all::prune(box & b, SMTConfig & config, vector<box> &) {
     DREAL_LOG_DEBUG << "contractor_parallel_all::prune";
     DREAL_LOG_FATAL << "-------------------------------------------------------------";
     // TODO(soonhok): implement this
@@ -102,6 +102,7 @@ void contractor_parallel_all::prune(box & b, SMTConfig & config) {
 
     // 1. Make n copies of box b
     vector<box> boxes(m_vec.size(), b);
+    vector<vector<box>> bins(m_vec.size());
     vector<pruning_thread_status> statuses(m_vec.size(), pruning_thread_status::READY);
     m_index = -1;
 
@@ -118,12 +119,16 @@ void contractor_parallel_all::prune(box & b, SMTConfig & config) {
                              i,
                              m_vec[i],
                              boxes[i],
+                             bins[i],
                              config,
                              statuses[i],
                              m_mutex,
                              m_cv,
                              m_index,
                              tasks_to_run);
+
+        // TODO(soonhok): need to handle this bins[i] (side effect of this extension of prune interface)
+
         DREAL_LOG_FATAL << "parallel : thread " << i << " / " << (tasks_to_run.load() - 1)
                         << " spawned...";
     }

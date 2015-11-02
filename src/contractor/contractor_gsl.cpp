@@ -297,7 +297,7 @@ contractor_gsl::contractor_gsl(box const & box, shared_ptr<ode_constraint> const
     m_used_constraints.insert(m_ctr);
 }
 
-void contractor_gsl::prune(box & b, SMTConfig & config) {
+void contractor_gsl::prune(box & b, SMTConfig & config, vector<box> & bin) {
     // TODO(soonhok): add timeout
     fesetround(FE_TONEAREST);  // Without this, GSL might cause a segmentation fault due to problems in floating point lib
     gsl_odeiv2_step_reset(m_step);
@@ -417,7 +417,7 @@ void contractor_gsl::prune(box & b, SMTConfig & config) {
             double const new_t = t/2.0 + old_t/2.0;
             DREAL_LOG_INFO << "GSL Update: time: " << b[m_time_t] << " ==> " << new_t;
             b[m_time_t] = new_t;
-            m_eval_ctc.prune(b, config);
+            m_eval_ctc.prune(b, config, bin);
             if (!b.is_empty()) {
                 DREAL_LOG_FATAL << "This box satisfies other non-linear constraints";
                 return;

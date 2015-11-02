@@ -61,7 +61,12 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
         b = box_stack.back();
         box_stack.pop_back();
         try {
-            ctc.prune(b, config);
+            thread_local static vector<box> bin;
+            bin.clear();
+            ctc.prune(b, config, bin);
+            if (bin.size() > 0) {
+                box_stack.insert(box_stack.end(), bin.begin(), bin.end());
+            }
             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
         } catch (contractor_exception & e) {
             // Do nothing
@@ -107,36 +112,37 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
 }
 
 box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
+    // TODO(soonhok): it doesn't support multiple solutions yet
     static unsigned prune_count = 0;
     thread_local static vector<box> box_stack;
-    thread_local static vector<int> bisect_var_stack;
     box_stack.clear();
-    bisect_var_stack.clear();
     box_stack.push_back(b);
-    bisect_var_stack.push_back(-1);  // Dummy var
     do {
         // Loop Invariant
-        assert(box_stack.size() == bisect_var_stack.size());
         DREAL_LOG_INFO << "ncbt_icp::solve - loop"
                        << "\t" << "box stack Size = " << box_stack.size();
         b = box_stack.back();
+        box_stack.pop_back();
         try {
-            ctc.prune(b, config);
+            thread_local static vector<box> bin;
+            bin.clear();
+            ctc.prune(b, config, bin);
+            if (bin.size() > 0) {
+                box_stack.insert(box_stack.end(), bin.begin(), bin.end());
+            }
             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
         } catch (contractor_exception & e) {
             // Do nothing
         }
         prune_count++;
-        box_stack.pop_back();
-        bisect_var_stack.pop_back();
         if (!b.is_empty()) {
             // SAT
             tuple<int, box, box> splits = b.bisect(config.nra_precision);
             if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
             int const index = get<0>(splits);
             if (index >= 0) {
-                box const & first    = get<1>(splits);
-                box const & second   = get<2>(splits);
+                box const & first  = get<1>(splits);
+                box const & second = get<2>(splits);
                 if (second.is_bisectable()) {
                     box_stack.push_back(second);
                     box_stack.push_back(first);
@@ -144,21 +150,17 @@ box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                     box_stack.push_back(first);
                     box_stack.push_back(second);
                 }
-                bisect_var_stack.push_back(index);
-                bisect_var_stack.push_back(index);
             } else {
                 break;
             }
         } else {
             // UNSAT
             while (box_stack.size() > 0) {
-                assert(box_stack.size() == bisect_var_stack.size());
-                int bisect_var = bisect_var_stack.back();
+                int bisect_var = b.get_idx_last_branched();
                 ibex::BitSet const & input = ctc.input();
                 DREAL_LOG_DEBUG << ctc;
                 if (!input.contain(bisect_var)) {
                     box_stack.pop_back();
-                    bisect_var_stack.pop_back();
                 } else {
                     break;
                 }
@@ -179,13 +181,19 @@ box random_icp::solve(box b, double const precision ) {
     solns.clear();
     box_stack.clear();
     box_stack.push_back(b);
+    vector<box> bin;
     do {
         DREAL_LOG_INFO << "random_icp::solve - loop"
                        << "\t" << "box stack Size = " << box_stack.size();
         b = box_stack.back();
         box_stack.pop_back();
         try {
-            m_ctc.prune(b, m_config);
+            thread_local static vector<box> bin;
+            bin.clear();
+            m_ctc.prune(b, m_config, bin);
+            if (bin.size() > 0) {
+                box_stack.insert(box_stack.end(), bin.begin(), bin.end());
+            }
         } catch (contractor_exception & e) {
             // Do nothing
         }

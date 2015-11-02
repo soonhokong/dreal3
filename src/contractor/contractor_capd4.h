@@ -40,7 +40,7 @@ private:
 
 public:
     contractor_capd_simple(box const & box, std::shared_ptr<ode_constraint> const ctr, ode_direction const dir);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, std::vector<box> & bin);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -80,7 +80,7 @@ private:
 
 public:
     contractor_capd_full(box const & box, std::shared_ptr<ode_constraint> const ctr, ode_direction const dir, unsigned const taylor_order, unsigned const grid_size, double const timeout = 0.0);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, std::vector<box> & bin);
     nlohmann::json generate_trace(box b, SMTConfig & config);
     std::ostream & display(std::ostream & out) const;
 };

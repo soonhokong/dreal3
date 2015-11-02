@@ -82,7 +82,7 @@ public:
     inline void clear_output() { m_output.clear(); }
     inline void clear_used_constraints() { m_output.clear(); }
     inline std::unordered_set<std::shared_ptr<constraint>> used_constraints() const { return m_used_constraints; }
-    virtual void prune(box & b, SMTConfig & config) = 0;
+    virtual void prune(box & b, SMTConfig & config, std::vector<box> & bin) = 0;
     virtual std::ostream & display(std::ostream & out) const = 0;
 };
 
@@ -117,15 +117,15 @@ public:
     inline ibex::BitSet input() const { return m_ptr->input(); }
     inline ibex::BitSet output() const { return m_ptr->output(); }
     inline std::unordered_set<std::shared_ptr<constraint>> used_constraints() const { return m_ptr->used_constraints(); }
-    inline void prune(box & b, SMTConfig & config) {
+    inline void prune(box & b, SMTConfig & config, std::vector<box> & bin) {
         if (m_ptr) {
             // by default, clear output vector and used constraints.
             m_ptr->clear_output();
             m_ptr->clear_used_constraints();
-            m_ptr->prune(b, config);
+            m_ptr->prune(b, config, bin);
         }
     }
-    void prune_with_assert(box & b, SMTConfig & config);
+    void prune_with_assert(box & b, SMTConfig & config, std::vector<box> & bin);
     inline bool operator==(contractor const & c) const { return m_ptr == c.m_ptr; }
     inline bool operator<(contractor const & c) const { return m_ptr < c.m_ptr; }
     std::size_t hash() const { return (std::size_t) m_ptr.get(); }

@@ -348,7 +348,11 @@ bool contractor_capd_full::check_invariant(capd::IVector & v, box b, SMTConfig &
         shared_ptr<forallt_constraint> inv = invs[i];
         Enode * inv_e = inv->get_enodes()[0];
         if (inv_e->hasPolarity() && inv_e->getPolarity() == l_True) {
-            m_inv_ctcs[i].prune(b, config);
+            vector<box> bin;
+            m_inv_ctcs[i].prune(b, config, bin);
+            if (bin.size() > 0) {
+                b.hull(bin);
+            }
             if (b.is_empty()) {
                 return false;
             }
@@ -488,7 +492,7 @@ contractor_capd_simple::contractor_capd_simple(box const & /* box */, shared_ptr
     assert(m_ctr);
 }
 
-void contractor_capd_simple::prune(box &, SMTConfig &) {
+void contractor_capd_simple::prune(box &, SMTConfig &, vector<box> &) {
     if (m_dir == ode_direction::FWD) {
         // TODO(soonhok): implement this
     } else {
@@ -581,7 +585,7 @@ contractor_capd_full::contractor_capd_full(box const & box, shared_ptr<ode_const
     m_output = ibex::BitSet::empty(box.size());
 }
 
-void contractor_capd_full::prune(box & b, SMTConfig & config) {
+void contractor_capd_full::prune(box & b, SMTConfig & config, vector<box> &) {
     auto const start_time = steady_clock::now();
     thread_local static box old_box(b);
     old_box = b;

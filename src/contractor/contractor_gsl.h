@@ -77,7 +77,7 @@ public:
         gsl_odeiv2_control_free(m_control);
         gsl_odeiv2_step_free(m_step);
     }
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, std::vector<box> & bin);
     std::ostream & display(std::ostream & out) const;
 };
 

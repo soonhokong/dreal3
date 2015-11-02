@@ -21,6 +21,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <memory>
 #include <unordered_set>
+#include <vector>
 #include "opensmt/api/opensmt_c.h"
 #include "opensmt/api/OpenSMTContext.h"
 #include "util/box.h"
@@ -34,6 +35,7 @@ using std::endl;
 using std::unordered_set;
 using std::shared_ptr;
 using std::make_shared;
+using std::vector;
 
 namespace dreal {
 
@@ -65,7 +67,8 @@ TEST_CASE("ibex_fwdbwd_01") {
     auto output_before = c.output();
     cerr << "Input  (BEFORE) : ";  input_before.display(cerr) << endl;
     cerr << "Output (BEFORE) : "; output_before.display(cerr) << endl;
-    c.prune(b, opensmt_ctx->getConfig());
+    vector<box> bin;
+    c.prune(b, opensmt_ctx->getConfig(), bin);
     cerr << b << endl;
     auto input_after = c.input();
     auto output_after = c.output();
@@ -110,7 +113,8 @@ TEST_CASE("ibex_fwdbwd_02") {
     auto output_before = c.output();
     cerr << "Input  (BEFORE) : "; input_before.display(cerr)  << endl;
     cerr << "Output (BEFORE) : "; output_before.display(cerr) << endl;
-    c.prune(b, opensmt_ctx->getConfig());
+    vector<box> bin;
+    c.prune(b, opensmt_ctx->getConfig(), bin);
     cerr << b << endl;
     auto input_after = c.input();
     auto output_after = c.output();
@@ -162,7 +166,8 @@ TEST_CASE("ibex_polytope") {
     auto output_before = c.output();
     cerr << "IBEX_polytope Input  (BEFORE) : ";  input_before.display(cerr) << endl;
     cerr << "IBEX_polytope Output (BEFORE) : "; output_before.display(cerr) << endl;
-    c.prune(b, opensmt_ctx->getConfig());
+    vector<box> bin;
+    c.prune(b, opensmt_ctx->getConfig(), bin);
     cerr << b << endl;
     auto input_after = c.input();
     auto output_after = c.output();

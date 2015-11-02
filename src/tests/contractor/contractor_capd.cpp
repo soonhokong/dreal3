@@ -20,6 +20,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <iostream>
 #include <utility>
+#include <vector>
 #include "opensmt/api/opensmt_c.h"
 #include "opensmt/api/OpenSMTContext.h"
 #include "util/box.h"
@@ -32,6 +33,7 @@ using std::cerr;
 using std::endl;
 using std::make_pair;
 using std::make_shared;
+using std::vector;
 
 namespace dreal {
 
@@ -111,7 +113,8 @@ TEST_CASE("capd_fwd") {
     auto output_before = c.output();
     cerr << "Input  (BEFORE) : ";  input_before.display(cerr) << endl;
     cerr << "Output (BEFORE) : "; output_before.display(cerr) << endl;
-    c.prune(b, opensmt_ctx->getConfig());
+    vector<box> bin;
+    c.prune(b, opensmt_ctx->getConfig(), bin);
     cerr << b << endl;
     auto input_after = c.input();
     auto output_after = c.output();
@@ -220,7 +223,8 @@ TEST_CASE("capd_bwd") {
     auto output_before = c.output();
     cerr << "Input  (BEFORE) : ";  input_before.display(cerr) << endl;
     cerr << "Output (BEFORE) : "; output_before.display(cerr) << endl;
-    c.prune(b, opensmt_ctx->getConfig());
+    vector<box> bin;
+    c.prune(b, opensmt_ctx->getConfig(), bin);
     cerr << b << endl;
     auto input_after = c.input();
     auto output_after = c.output();

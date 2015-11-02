@@ -94,20 +94,20 @@ contractor_generic_forall::contractor_generic_forall(box const & b, shared_ptr<g
     }
 }
 
-void contractor_generic_forall::handle(box & b, Enode * body, bool const p,  SMTConfig & config) {
+void contractor_generic_forall::handle(box & b, vector<box> & bin, Enode * body, bool const p,  SMTConfig & config) {
     if (body->isOr()) {
         vector<Enode *> vec = elist_to_vector(body->getCdr());
-        handle_disjunction(b, vec, p, config);
+        handle_disjunction(b, bin, vec, p, config);
         return;
     } else if (body->isAnd()) {
         vector<Enode *> vec = elist_to_vector(body->getCdr());
-        handle_conjunction(b, vec, p, config);
+        handle_conjunction(b, bin, vec, p, config);
         return;
     } else if (body->isNot()) {
-        handle(b, body->get1st(), !p, config);
+        handle(b, bin, body->get1st(), !p, config);
         return;
     } else {
-        handle_atomic(b, body, p, config);
+        handle_atomic(b, bin, body, p, config);
         return;
     }
 }
@@ -445,7 +445,7 @@ box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> cons
     return counterexample;
 }
 
-void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> const &vec, bool const p, SMTConfig & config) {
+void contractor_generic_forall::handle_disjunction(box & b, vector<box> & bin, vector<Enode *> const &vec, bool const p, SMTConfig & config) {
     DREAL_LOG_DEBUG << "contractor_generic_forall::handle_disjunction" << endl;
     unordered_set<Enode *> forall_vars;
     for (Enode * e : vec) {
@@ -504,7 +504,7 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
             } else {
                 contractor ctc = mk_contractor_ibex_fwdbwd(ctr);
                 box bt(b);
-                ctc.prune(bt, config);
+                ctc.prune(bt, config, bin);
                 m_output.union_with(ctc.output());
                 unordered_set<shared_ptr<constraint>> const & used_ctrs = ctc.used_constraints();
                 m_used_constraints.insert(used_ctrs.begin(), used_ctrs.end());
@@ -516,29 +516,29 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
     return;
 }
 
-void contractor_generic_forall::handle_conjunction(box & b, vector<Enode *> const & vec, bool const p, SMTConfig & config) {
+void contractor_generic_forall::handle_conjunction(box & b, vector<box> & bin, vector<Enode *> const & vec, bool const p, SMTConfig & config) {
     DREAL_LOG_DEBUG << "contractor_generic_forall::handle_conjunction" << endl;
     for (Enode * e : vec) {
         DREAL_LOG_DEBUG << "process conjunction element : " << e << endl;
-        handle(b, e, p, config);
+        handle(b, bin, e, p, config);
         if (b.is_empty()) {
             return;
         }
     }
     return;
 }
-void contractor_generic_forall::handle_atomic(box & b, Enode * body, bool const p, SMTConfig & config) {
+void contractor_generic_forall::handle_atomic(box & b, vector<box> & bin, Enode * body, bool const p, SMTConfig & config) {
     vector<Enode*> vec;
     vec.push_back(body);
-    handle_disjunction(b, vec, p, config);
+    handle_disjunction(b, bin, vec, p, config);
     return;
 }
 
-void contractor_generic_forall::prune(box & b, SMTConfig & config) {
+void contractor_generic_forall::prune(box & b, SMTConfig & config, vector<box> & bin) {
     DREAL_LOG_DEBUG << "contractor_generic_forall prune: " << *m_ctr << endl;
     Enode * body = m_ctr->get_body();
     DREAL_LOG_DEBUG << "body = " << body << endl;
-    handle(b, body, true, config);
+    handle(b, bin, body, true, config);
     return;
 }
 

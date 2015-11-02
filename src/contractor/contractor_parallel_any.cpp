@@ -93,7 +93,7 @@ contractor_parallel_any::contractor_parallel_any(contractor const & c1, contract
 
 #define PARALLEL_LOG DREAL_LOG_DEBUG
 
-void contractor_parallel_any::prune(box & b, SMTConfig & config) {
+void contractor_parallel_any::prune(box & b, SMTConfig & config, vector<box> &) {
     DREAL_LOG_DEBUG << "contractor_parallel_any::prune";
     PARALLEL_LOG << "-------------------------------------------------------------";
     // TODO(soonhok): implement this
@@ -104,6 +104,7 @@ void contractor_parallel_any::prune(box & b, SMTConfig & config) {
 
     // 1. Make n copies of box b
     vector<box> boxes(m_vec.size(), b);
+    vector<vector<box>> bins(m_vec.size());
     vector<pruning_thread_status> statuses(m_vec.size(), pruning_thread_status::READY);
     m_index = -1;
 
@@ -120,12 +121,16 @@ void contractor_parallel_any::prune(box & b, SMTConfig & config) {
                              i,
                              m_vec[i],
                              boxes[i],
+                             bins[i],
                              config,
                              statuses[i],
                              m_mutex,
                              m_cv,
                              m_index,
                              tasks_to_run);
+
+        // TODO(soonhok): need to handle this bins[i] (side effect of this extension of prune interface)
+
         PARALLEL_LOG << "parallel_any: thread " << i << " / " << (tasks_to_run.load() - 1)
                         << " spawned...";
     }

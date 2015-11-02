@@ -109,7 +109,7 @@ ostream & operator<<(ostream & out, pruning_thread_status const & s) {
 
 #define PARALLEL_LOG DREAL_LOG_DEBUG
 
-void parallel_helper_fn(unsigned const id, contractor & c, box & b, SMTConfig & config,
+void parallel_helper_fn(unsigned const id, contractor & c, box & b, vector<box> & bin, SMTConfig & config,
                         pruning_thread_status & s, mutex & m, condition_variable & cv, int & index,
                         atomic_int & tasks_to_run) {
     s = pruning_thread_status::RUNNING;
@@ -117,7 +117,7 @@ void parallel_helper_fn(unsigned const id, contractor & c, box & b, SMTConfig & 
                     << tasks_to_run << "tasks to run";
     // PARALLEL_LOG << "parallel_helper: thread " << id << " ctc = " << c;
     try {
-        c.prune(b, config);
+        c.prune(b, config, bin);
         if (b.is_empty()) {
             // do something for UNSAT
             s = pruning_thread_status::UNSAT;
