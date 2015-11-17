@@ -51,7 +51,24 @@ void output_solution(box const & b, SMTConfig & config, unsigned i) {
     display(config.nra_model_out, b, false, true);
 }
 
+bool check_db(vector<ibex::IntervalVector> const & db, ibex::IntervalVector & iv) {
+    for (ibex::IntervalVector const & learned_vector : db) {
+        if (iv.is_subset(learned_vector)) {
+        // if (b.get_values().is_superset(learned_vector)) {
+            // DREAL_LOG_FATAL << "HIT IT!!";
+            // DREAL_LOG_FATAL << "CURRENT BOX";
+            // DREAL_LOG_FATAL << b;
+            // DREAL_LOG_FATAL << "LEARNED BOX";
+            // DREAL_LOG_FATAL << learned_vector;
+            iv.set_empty();
+            return true;
+        }
+    }
+    return false;
+}
+
 box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
+    vector<ibex::IntervalVector> db;
     thread_local static std::unordered_set<std::shared_ptr<constraint>> used_constraints;
     used_constraints.clear();
     thread_local static vector<box> solns;
@@ -59,12 +76,18 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
     solns.clear();
     box_stack.clear();
     box_stack.push_back(b);
+    box old_box = b;
     do {
         DREAL_LOG_INFO << "naive_icp::solve - loop"
                        << "\t" << "box stack Size = " << box_stack.size();
         b = box_stack.back();
         box_stack.pop_back();
+        if (check_db(db, b.get_values())) {
+            std::cerr << "1";
+            continue;
+        }
         try {
+            old_box = b;
             ctc.prune(b, config);
             auto this_used_constraints = ctc.used_constraints();
             used_constraints.insert(this_used_constraints.begin(), this_used_constraints.end());
@@ -73,6 +96,10 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             // Do nothing
         }
         if (!b.is_empty()) {
+            if (check_db(db, b.get_values())) {
+                std::cerr << "2";
+                continue;
+            }
             tuple<int, box, box> splits = b.bisect(config.nra_precision);
             if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
             int const i = get<0>(splits);
@@ -103,6 +130,33 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                     break;
                 }
                 solns.push_back(b);
+            }
+        } else {
+            // UNSAT
+            unordered_set<Enode*> contributed_vars;
+            for (auto const & ctr : ctc.used_constraints()) {
+                auto const & this_vars = ctr->get_vars();
+                contributed_vars.insert(this_vars.begin(), this_vars.end());
+            }
+            if (contributed_vars.size() != b.size()) {
+                ibex::IntervalVector learned_vector = old_box.get_values();
+                // relax learned_vector
+                for (unsigned i = 0; i < b.size(); ++i) {
+                    auto it = contributed_vars.find(old_box.get_vars()[i]);
+                    if (it == contributed_vars.end()) {
+                        // If i-th var is not a contributed variable, relax it
+                        learned_vector[i] = old_box.get_domain(i);
+                    }
+                }
+                // DREAL_LOG_FATAL << contributed_vars.size() << "/"
+                //                 << old_box.size();
+                // DREAL_LOG_FATAL << "CHANGES===";
+                // display_diff(std::cerr, old_box, learned_vector);
+                db.push_back(learned_vector);
+                std::cerr << "L";
+            } else {
+                // DREAL_LOG_FATAL << "NODAP";
+                std::cerr << "U";
             }
         }
     } while (box_stack.size() > 0);
