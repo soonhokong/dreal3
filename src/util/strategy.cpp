@@ -158,17 +158,16 @@ contractor default_strategy::build_contractor(box const & box,
                         // Case: != (not equal), do nothing
                     }
                 }
-                contractor nl_ctc2 = mk_contractor_seq(nl_ctcs2);
                 for (auto const & ode_ctr : ode_ctrs) {
                     // Add Forward ODE Pruning (Underapproximation, using GNU GSL)
                     ode_gsl_ctcs.push_back(mk_contractor_gsl(box, ode_ctr, eval_ctc, ode_direction::FWD, false, config.nra_ODE_fwd_timeout));
-                    ode_gsl_ctcs.push_back(nl_ctc2);
+                    ode_gsl_ctcs.insert(ode_gsl_ctcs.end(), nl_ctcs2.begin(), nl_ctcs2.end());
                 }
             } else {
                 for (auto const & ode_ctr : ode_ctrs) {
                     // Add Forward ODE Pruning (Underapproximation, using GNU GSL)
                     ode_gsl_ctcs.push_back(mk_contractor_gsl(box, ode_ctr, eval_ctc, ode_direction::FWD, use_cache, config.nra_ODE_fwd_timeout));
-                    ode_gsl_ctcs.push_back(nl_ctc);
+                    ode_gsl_ctcs.insert(ode_gsl_ctcs.end(), nl_ctcs.begin(), nl_ctcs.end());
                 }
             }
         }
@@ -232,14 +231,10 @@ contractor default_strategy::build_contractor(box const & box,
     }
     if (complete) {
         // 2.7 Build Eval contractors
-        vector<contractor> eval_ctcs;
         for (auto const & nl_ctr : nl_ctrs) {
-            eval_ctcs.push_back(mk_contractor_eval(nl_ctr, use_cache));
+            ctcs.push_back(mk_contractor_eval(nl_ctr, use_cache));
         }
-        return mk_contractor_seq(mk_contractor_fixpoint(default_strategy::term_cond, ctcs),
-                                 mk_contractor_seq(eval_ctcs));
-    } else {
-        return mk_contractor_fixpoint(default_strategy::term_cond, ctcs);
     }
+    return mk_contractor_fixpoint(default_strategy::term_cond, ctcs);
 }
 }  // namespace dreal
