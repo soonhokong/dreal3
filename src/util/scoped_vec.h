@@ -63,12 +63,20 @@ public:
     const_reverse_iterator crend()   const { return m_vec.crend(); }
     void push_back(value_type const & v) { m_vec.push_back(v); }
     void push() { m_scopes.push_back(m_vec.size()); }
+    unsigned num_pushes() const { return m_scopes.size(); }
     unsigned int pop() {
         unsigned int count = 0;
         unsigned const prev_size = m_scopes.back();
         m_scopes.pop_back();
         unsigned cur_size = m_vec.size();
         while (cur_size-- > prev_size) { m_vec.pop_back(); count++; }
+        return count;
+    }
+    unsigned int pop(int i) {
+        unsigned count = 0;
+        while (i-- > 0) {
+            count += pop();
+        }
         return count;
     }
     unsigned size() const    { return m_vec.size(); }

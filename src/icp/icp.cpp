@@ -23,6 +23,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include <unordered_set>
 #include "icp/icp.h"
 #include "util/logging.h"
+#include "util/scoped_vec.h"
 #include "util/stat.h"
 
 using std::cerr;
@@ -49,6 +50,16 @@ void output_solution(box const & b, SMTConfig & config, unsigned i) {
         }
     }
     display(config.nra_model_out, b, false, true);
+}
+
+bool check_db(vector<ibex::IntervalVector> const & db, ibex::IntervalVector & iv) {
+    for (ibex::IntervalVector const & learned_vector : db) {
+        if (iv.is_subset(learned_vector)) {
+            iv.set_empty();
+            return true;
+        }
+    }
+    return false;
 }
 
 box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
@@ -116,37 +127,60 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
 }
 
 box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
+    vector<ibex::IntervalVector> db;
     thread_local static std::unordered_set<std::shared_ptr<constraint>> used_constraints;
+    scoped_vec<std::shared_ptr<constraint>> used_constraints_line;
     used_constraints.clear();
-    static unsigned prune_count = 0;
+    thread_local static vector<box> solns;
     thread_local static vector<box> box_stack;
+    solns.clear();
     box_stack.clear();
     box_stack.push_back(b);
+    box old_box = b;
     do {
-        // Loop Invariant
-        DREAL_LOG_INFO << "ncbt_icp::solve - loop"
+        DREAL_LOG_INFO << "naive_icp::solve - loop"
                        << "\t" << "box stack Size = " << box_stack.size();
         b = box_stack.back();
+        box_stack.pop_back();
+               if (check_db(db, b.get_values())) {
+            std::cerr << "1";
+            continue;
+        }
         try {
+            old_box = b;
             ctc.prune(b, config);
-            auto const this_used_constraints = ctc.used_constraints();
+            auto this_used_constraints = ctc.used_constraints();
             used_constraints.insert(this_used_constraints.begin(), this_used_constraints.end());
+
+            if (box_stack.size() > 0) {
+                used_constraints_line.pop(used_constraints_line.num_pushes() - box_stack.back().get_depth());
+            }
+
+            // line ctrs
+            used_constraints_line.push();
+            DREAL_LOG_FATAL << "! " << used_constraints_line.num_pushes() << "\t" << b.get_depth();
+
+            for (auto const ctr : this_used_constraints) {
+                used_constraints_line.push_back(ctr);
+            }
+
             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
         } catch (contractor_exception & e) {
             // Do nothing
         }
-        prune_count++;
-        box_stack.pop_back();
         if (!b.is_empty()) {
-            // SAT
+            if (check_db(db, b.get_values())) {
+                std::cerr << "2";
+                continue;
+            }
             tuple<int, box, box> splits = b.bisect(config.nra_precision);
             if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
-            int const index = get<0>(splits);
-            if (index >= 0) {
-                box const & first    = get<1>(splits);
-                box const & second   = get<2>(splits);
-                assert(first.get_idx_last_branched() == index);
-                assert(second.get_idx_last_branched() == index);
+            int const i = get<0>(splits);
+            if (i >= 0) {
+                box const & first  = get<1>(splits);
+                box const & second = get<2>(splits);
+                assert(first.get_idx_last_branched() == i);
+                assert(second.get_idx_last_branched() == i);
                 if (second.is_bisectable()) {
                     box_stack.push_back(second);
                     box_stack.push_back(first);
@@ -154,39 +188,156 @@ box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                     box_stack.push_back(first);
                     box_stack.push_back(second);
                 }
+                if (config.nra_proof) {
+                    config.nra_proof_out << "[branched on "
+                                         << b.get_name(i)
+                                         << "]" << endl;
+                }
             } else {
-                break;
+                config.nra_found_soln++;
+                if (config.nra_multiple_soln > 1) {
+                    // If --multiple_soln is used
+                    output_solution(b, config, config.nra_found_soln);
+                }
+                if (config.nra_found_soln >= config.nra_multiple_soln) {
+                    break;
+                }
+                solns.push_back(b);
             }
         } else {
-            // UNSAT (b is emptified by pruning operators)
-            // If this bisect_var is not used in all used
-            // constraints, this box is safe to be popped.
+            // UNSAT
+
+            // 1. Learning
             thread_local static unordered_set<Enode *> used_vars;
             used_vars.clear();
-            for (auto used_ctr : used_constraints) {
+            if (used_constraints_line.num_pushes() - b.get_depth() != 1) {
+                DREAL_LOG_FATAL << "??";
+                DREAL_LOG_FATAL << used_constraints_line.num_pushes() << "\t" << b.get_depth();
+                exit(1);
+            }
+            for (auto used_ctr : used_constraints_line) {
                 auto this_used_vars = used_ctr->get_vars();
                 used_vars.insert(this_used_vars.begin(), this_used_vars.end());
             }
-            while (box_stack.size() > 0) {
-                int const bisect_var = box_stack.back().get_idx_last_branched();
-                assert(bisect_var >= 0);
-                // If this bisect_var is not used in all used
-                // constraints, this box is safe to be popped.
-                if (used_vars.find(b.get_vars()[bisect_var]) != used_vars.end()) {
+            if (used_vars.size() != b.size()) {
+                ibex::IntervalVector learned_vector = old_box.get_values();
+                // relax learned_vector
+                for (unsigned i = 0; i < b.size(); ++i) {
+                    auto it = used_vars.find(old_box.get_vars()[i]);
+                    if (it == used_vars.end()) {
+                        // If i-th var is not a used variable, relax it
+                        learned_vector[i] = old_box.get_domain(i);
+                    }
+                }
+                db.push_back(learned_vector);
+                std::cerr << "L";
+                // 2. Pop (possibly) multiple boxes
+                while (box_stack.size() > 0) {
+                    if (check_db(db, box_stack.back().get_values())) {
+                        box_stack.pop_back();
+                        continue;
+                    }
+                    int const bisect_var = box_stack.back().get_idx_last_branched();
+                    assert(bisect_var >= 0);
+                    // If this bisect_var is not used in all used
+                    // constraints, this box is safe to be popped.
+                    if (used_vars.find(b.get_vars()[bisect_var]) == used_vars.end()) {
+                        // DREAL_LOG_FATAL << b.get_vars()[bisect_var] << " is not used and it's safe to skip this box"
+                        //                 << " (" << box_stack.size() << ")";
+                        box_stack.pop_back();
+                        continue;
+                    }
                     // DREAL_LOG_FATAL << b.get_vars()[bisect_var] << " is used in "
                     //                 << *used_ctr << " and it's not safe to skip";
                     break;
                 }
-                // DREAL_LOG_FATAL << b.get_vars()[bisect_var] << " is not used and it's safe to skip this box"
-                //                 << " (" << box_stack.size() << ")";
-                box_stack.pop_back();
+            } else {
+                // DREAL_LOG_FATAL << "NODAP";
+                std::cerr << "U";
             }
         }
     } while (box_stack.size() > 0);
-    DREAL_LOG_DEBUG << "prune count = " << prune_count;
     ctc.set_used_constraints(used_constraints);
-    return b;
+    if (config.nra_multiple_soln > 1 && solns.size() > 0) {
+        return solns.back();
+    } else {
+        assert(!b.is_empty() || box_stack.size() == 0);
+        return b;
+    }
 }
+
+// box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
+//     thread_local static std::unordered_set<std::shared_ptr<constraint>> used_constraints;
+//     used_constraints.clear();
+//     static unsigned prune_count = 0;
+//     thread_local static vector<box> box_stack;
+//     box_stack.clear();
+//     box_stack.push_back(b);
+//     do {
+//         // Loop Invariant
+//         DREAL_LOG_INFO << "ncbt_icp::solve - loop"
+//                        << "\t" << "box stack Size = " << box_stack.size();
+//         b = box_stack.back();
+//         try {
+//             ctc.prune(b, config);
+//             auto const this_used_constraints = ctc.used_constraints();
+//             used_constraints.insert(this_used_constraints.begin(), this_used_constraints.end());
+//             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
+//         } catch (contractor_exception & e) {
+//             // Do nothing
+//         }
+//         prune_count++;
+//         box_stack.pop_back();
+//         if (!b.is_empty()) {
+//             // SAT
+//             tuple<int, box, box> splits = b.bisect(config.nra_precision);
+//             if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
+//             int const index = get<0>(splits);
+//             if (index >= 0) {
+//                 box const & first    = get<1>(splits);
+//                 box const & second   = get<2>(splits);
+//                 assert(first.get_idx_last_branched() == index);
+//                 assert(second.get_idx_last_branched() == index);
+//                 if (second.is_bisectable()) {
+//                     box_stack.push_back(second);
+//                     box_stack.push_back(first);
+//                 } else {
+//                     box_stack.push_back(first);
+//                     box_stack.push_back(second);
+//                 }
+//             } else {
+//                 break;
+//             }
+//         } else {
+//             // UNSAT (b is emptified by pruning operators)
+//             // If this bisect_var is not used in all used
+//             // constraints, this box is safe to be popped.
+//             thread_local static unordered_set<Enode *> used_vars;
+//             used_vars.clear();
+//             for (auto used_ctr : used_constraints) {
+//                 auto this_used_vars = used_ctr->get_vars();
+//                 used_vars.insert(this_used_vars.begin(), this_used_vars.end());
+//             }
+//             while (box_stack.size() > 0) {
+//                 int const bisect_var = box_stack.back().get_idx_last_branched();
+//                 assert(bisect_var >= 0);
+//                 // If this bisect_var is not used in all used
+//                 // constraints, this box is safe to be popped.
+//                 if (used_vars.find(b.get_vars()[bisect_var]) != used_vars.end()) {
+//                     // DREAL_LOG_FATAL << b.get_vars()[bisect_var] << " is used in "
+//                     //                 << *used_ctr << " and it's not safe to skip";
+//                     break;
+//                 }
+//                 // DREAL_LOG_FATAL << b.get_vars()[bisect_var] << " is not used and it's safe to skip this box"
+//                 //                 << " (" << box_stack.size() << ")";
+//                 box_stack.pop_back();
+//             }
+//         }
+//     } while (box_stack.size() > 0);
+//     DREAL_LOG_DEBUG << "prune count = " << prune_count;
+//     ctc.set_used_constraints(used_constraints);
+//     return b;
+// }
 
 random_icp::random_icp(contractor & ctc, SMTConfig & config)
     : m_ctc(ctc), m_config(config), m_rg(m_config.nra_random_seed), m_dist(0, 1) {

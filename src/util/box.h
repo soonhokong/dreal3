@@ -41,6 +41,7 @@ private:
     ibex::IntervalVector m_values;
     std::shared_ptr<std::unordered_map<std::string, int>> m_name_index_map;
     int m_idx_last_branched;
+    unsigned m_depth;
 
     // Methods
     std::tuple<int, box, box> bisect_int_at(int i) const;
@@ -100,6 +101,7 @@ public:
     }
 
     int get_idx_last_branched() const { return m_idx_last_branched; }
+    unsigned get_depth() const { return m_depth; }
 
     // operator[]
     inline const ibex::Interval& operator[](int i) const { return get_value(i); }

@@ -461,7 +461,7 @@ bool nra_solver::check(bool complete) {
             handle_sat_case(m_box);
         }
     }
-    DREAL_LOG_DEBUG << "nra_solver::check(" << (complete ? "complete" : "incomplete") << ") = " << result;
+    // DREAL_LOG_FATAL << "nra_solver::check(" << (complete ? "complete" : "incomplete") << ") = " << result;
     return result;
 }
 
