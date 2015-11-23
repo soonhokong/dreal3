@@ -148,22 +148,27 @@ box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
         }
         try {
             old_box = b;
+            // line ctrs
+            // DREAL_LOG_FATAL << "Before Pop "
+            //                 << "# Push  = " << used_constraints_line.num_pushes() << "\t"
+            //                 << "# Depth = " << b.get_depth();
+            used_constraints_line.pop(used_constraints_line.num_pushes() - b.get_depth());
+            // DREAL_LOG_FATAL << "After  Pop "
+            //                 << "# Push  = " << used_constraints_line.num_pushes() << "\t"
+            //                 << "# Depth = " << b.get_depth();
+            // if (used_constraints_line.num_pushes() != b.get_depth()) {
+            //     DREAL_LOG_FATAL << "INV 1 VIOLATED";
+            //     exit(1);
+            // }
+            used_constraints_line.push();
             ctc.prune(b, config);
             auto this_used_constraints = ctc.used_constraints();
             used_constraints.insert(this_used_constraints.begin(), this_used_constraints.end());
 
-            if (box_stack.size() > 0) {
-                used_constraints_line.pop(used_constraints_line.num_pushes() - box_stack.back().get_depth());
-            }
-
             // line ctrs
-            used_constraints_line.push();
-            DREAL_LOG_FATAL << "! " << used_constraints_line.num_pushes() << "\t" << b.get_depth();
-
             for (auto const ctr : this_used_constraints) {
                 used_constraints_line.push_back(ctr);
             }
-
             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
         } catch (contractor_exception & e) {
             // Do nothing
@@ -210,11 +215,6 @@ box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             // 1. Learning
             thread_local static unordered_set<Enode *> used_vars;
             used_vars.clear();
-            if (used_constraints_line.num_pushes() - b.get_depth() != 1) {
-                DREAL_LOG_FATAL << "??";
-                DREAL_LOG_FATAL << used_constraints_line.num_pushes() << "\t" << b.get_depth();
-                exit(1);
-            }
             for (auto used_ctr : used_constraints_line) {
                 auto this_used_vars = used_ctr->get_vars();
                 used_vars.insert(this_used_vars.begin(), this_used_vars.end());
@@ -234,6 +234,7 @@ box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                 // 2. Pop (possibly) multiple boxes
                 while (box_stack.size() > 0) {
                     if (check_db(db, box_stack.back().get_values())) {
+                        std::cerr << "P1";
                         box_stack.pop_back();
                         continue;
                     }
@@ -244,6 +245,7 @@ box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                     if (used_vars.find(b.get_vars()[bisect_var]) == used_vars.end()) {
                         // DREAL_LOG_FATAL << b.get_vars()[bisect_var] << " is not used and it's safe to skip this box"
                         //                 << " (" << box_stack.size() << ")";
+                        std::cerr << "P2";
                         box_stack.pop_back();
                         continue;
                     }

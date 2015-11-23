@@ -184,11 +184,16 @@ contractor default_strategy::build_contractor(box const & box,
                             mk_contractor_seq(mk_contractor_capd_full(box, ode_ctr, ode_direction::FWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size, use_cache, config.nra_ODE_fwd_timeout),
                                               nl_ctc))));
             } else {
+                // ode_capd4_fwd_ctcs.emplace_back(
+                //     mk_contractor_try(
+                //         mk_contractor_seq(
+                //             mk_contractor_capd_full(box, ode_ctr, ode_direction::FWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size, use_cache, config.nra_ODE_fwd_timeout),
+                //             nl_ctc)));
                 ode_capd4_fwd_ctcs.emplace_back(
                     mk_contractor_try(
-                        mk_contractor_seq(
-                            mk_contractor_capd_full(box, ode_ctr, ode_direction::FWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size, use_cache, config.nra_ODE_fwd_timeout),
-                            nl_ctc)));
+                        mk_contractor_capd_full(box, ode_ctr, ode_direction::FWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size, use_cache, config.nra_ODE_fwd_timeout)));
+                ode_capd4_fwd_ctcs.insert(ode_capd4_fwd_ctcs.end(), nl_ctcs.begin(), nl_ctcs.end());
+
             }
         }
         if (!config.nra_ODE_forward_only) {
@@ -202,11 +207,16 @@ contractor default_strategy::build_contractor(box const & box,
                                     mk_contractor_capd_full(box, ode_ctr, ode_direction::BWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size, use_cache, config.nra_ODE_bwd_timeout),
                                     nl_ctc))));
                 } else {
-                    ode_capd4_bwd_ctcs.emplace_back(
-                        mk_contractor_try(
-                            mk_contractor_seq(
-                                mk_contractor_capd_full(box, ode_ctr, ode_direction::BWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size, use_cache, config.nra_ODE_bwd_timeout),
-                                nl_ctc)));
+                    // ode_capd4_bwd_ctcs.emplace_back(
+                    //     mk_contractor_try(
+                    //         mk_contractor_seq(
+                    //             mk_contractor_capd_full(box, ode_ctr, ode_direction::BWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size, use_cache, config.nra_ODE_bwd_timeout),
+                    //             nl_ctc)));
+                ode_capd4_bwd_ctcs.emplace_back(
+                    mk_contractor_try(
+                        mk_contractor_capd_full(box, ode_ctr, ode_direction::BWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size, use_cache, config.nra_ODE_bwd_timeout)));
+                ode_capd4_bwd_ctcs.insert(ode_capd4_bwd_ctcs.end(), nl_ctcs.begin(), nl_ctcs.end());
+
                 }
             }
         }
@@ -232,14 +242,10 @@ contractor default_strategy::build_contractor(box const & box,
     }
     if (complete) {
         // 2.7 Build Eval contractors
-        vector<contractor> eval_ctcs;
         for (auto const & nl_ctr : nl_ctrs) {
-            eval_ctcs.push_back(mk_contractor_eval(nl_ctr, use_cache));
+            ctcs.push_back(mk_contractor_eval(nl_ctr, use_cache));
         }
-        return mk_contractor_seq(mk_contractor_fixpoint(default_strategy::term_cond, ctcs),
-                                 mk_contractor_seq(eval_ctcs));
-    } else {
-        return mk_contractor_fixpoint(default_strategy::term_cond, ctcs);
     }
+    return mk_contractor_fixpoint(default_strategy::term_cond, ctcs);
 }
 }  // namespace dreal
