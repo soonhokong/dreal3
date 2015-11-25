@@ -24,6 +24,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include "icp/icp.h"
 #include "util/logging.h"
 #include "util/stat.h"
+#include "json/json.hpp"
 
 using std::cerr;
 using std::cout;
@@ -59,7 +60,16 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
     solns.clear();
     box_stack.clear();
     box_stack.push_back(b);
+
+    nlohmann::json json_trace;
     do {
+        if (config.nra_json) {
+            nlohmann::json json_boxes;
+            for (box const & b : box_stack) {
+                json_boxes.push_back(b.to_JSON());
+            }
+            json_trace.push_back(json_boxes);
+        }
         DREAL_LOG_INFO << "naive_icp::solve - loop"
                        << "\t" << "box stack Size = " << box_stack.size();
         b = box_stack.back();
@@ -107,6 +117,9 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
         }
     } while (box_stack.size() > 0);
     ctc.set_used_constraints(used_constraints);
+    if (config.nra_json) {
+        config.nra_json_out << json_trace << endl;
+    }
     if (config.nra_multiple_soln > 1 && solns.size() > 0) {
         return solns.back();
     } else {
