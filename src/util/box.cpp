@@ -135,14 +135,16 @@ ostream& display(ostream& out, ibex::Interval const & iv, bool const exact) {
 
 nlohmann::json box::to_JSON() const {
     nlohmann::json j;
-    j["id"] = m_id;
-    nlohmann::json data;
-    for (unsigned i = 0; i < size(); ++i) {
-        string const & name = get_name(i);
-        auto const & iv = get_value(i);
-        data[name] = { iv.lb(), iv.ub() };
+    if (!is_empty()) {
+        j["id"] = m_id;
+        nlohmann::json data;
+        for (unsigned i = 0; i < size(); ++i) {
+            string const & name = get_name(i);
+            auto const & iv = get_value(i);
+            data[name] = { iv.lb(), iv.ub() };
+        }
+        j["iv"] = data;
     }
-    j["iv"] = data;
     return j;
 }
 

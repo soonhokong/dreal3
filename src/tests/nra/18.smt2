@@ -1,6 +1,6 @@
 (set-logic QF_NRA)
-(declare-fun x () Int)
-(declare-fun y () Int)
+(declare-fun x () Int [0, 10])
+(declare-fun y () Int [0, 10])
 (assert
  (and (> x 2)
       (< y 10)
