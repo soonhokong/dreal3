@@ -63,22 +63,30 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
 
     nlohmann::json json_trace;
     do {
-        if (config.nra_json) {
-            nlohmann::json json_boxes;
-            for (box const & b : box_stack) {
-                json_boxes.push_back(b.to_JSON());
-            }
-            json_trace.push_back(json_boxes);
-        }
+        // if (config.nra_json) {
+        //     nlohmann::json json_boxes;
+        //     for (box const & b : box_stack) {
+        //         json_boxes.push_back(b.to_JSON());
+        //     }
+        //     json_trace.push_back(json_boxes);
+        // }
         DREAL_LOG_INFO << "naive_icp::solve - loop"
                        << "\t" << "box stack Size = " << box_stack.size();
         b = box_stack.back();
         box_stack.pop_back();
         try {
+            box old_box = b;
             ctc.prune(b, config);
             auto this_used_constraints = ctc.used_constraints();
             used_constraints.insert(this_used_constraints.begin(), this_used_constraints.end());
             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
+            if (config.nra_json) {
+                nlohmann::json prune_instr;
+                prune_instr["type"] = "prune";
+                prune_instr["old"] = old_box.to_JSON();
+                prune_instr["new"] = b.to_JSON();
+                json_trace.push_back(prune_instr);
+            }
         } catch (contractor_exception & e) {
             // Do nothing
         }
@@ -103,6 +111,18 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                                          << b.get_name(i)
                                          << "]" << endl;
                 }
+                if (config.nra_json) {
+                    nlohmann::json branch_instr;
+                    branch_instr["type"] = "branch";
+                    branch_instr["old"] = b.to_JSON();
+                    if (second.is_bisectable()) {
+                        branch_instr["new"] = {second.to_JSON(), first.to_JSON()};
+                    } else {
+                        branch_instr["new"] = {first.to_JSON(), second.to_JSON()};
+                    }
+                    json_trace.push_back(branch_instr);
+                }
+
             } else {
                 config.nra_found_soln++;
                 if (config.nra_multiple_soln > 1) {
@@ -116,6 +136,16 @@ box naive_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             }
         }
     } while (box_stack.size() > 0);
+    // if (config.nra_json) {
+    //     nlohmann::json json_boxes = nlohmann::json::array();
+    //     if (!b.is_empty()) {
+    //         for (box const & b : box_stack) {
+    //             json_boxes.push_back(b.to_JSON());
+    //         }
+    //         json_boxes.push_back(b.to_JSON());
+    //     }
+    //     json_trace.push_back(json_boxes);
+    // }
     ctc.set_used_constraints(used_constraints);
     if (config.nra_json) {
         config.nra_json_out << json_trace << endl;

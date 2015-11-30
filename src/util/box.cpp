@@ -54,8 +54,14 @@ using std::make_tuple;
 using std::runtime_error;
 
 namespace dreal {
+
+static unsigned gen_id() {
+    static unsigned id = 0;
+    return id++;
+}
+
 box::box(vector<Enode *> const & vars)
-    : m_vars(nullptr), m_values(vars.size() == 0 ? 1 : vars.size()), m_idx_last_branched(-1) {
+    : m_id(gen_id()), m_vars(nullptr), m_values(vars.size() == 0 ? 1 : vars.size()), m_idx_last_branched(-1) {
     if (vars.size() > 0) {
         m_vars = make_shared<vector<Enode *>>(vars);
         m_name_index_map = make_shared<unordered_map<string, int>>();
@@ -102,7 +108,8 @@ void box::constructFromLiterals(vector<Enode *> const & lit_vec) {
 }
 
 box::box(box const & b, unordered_set<Enode *> const & extra_vars)
-    : m_vars(make_shared<vector<Enode* > >(*b.m_vars)),
+    : m_id(b.m_id),
+      m_vars(make_shared<vector<Enode* > >(*b.m_vars)),
       m_values(m_vars->size() + extra_vars.size()),
       m_name_index_map(make_shared<unordered_map<string, int>>()),
       m_idx_last_branched(-1) {
@@ -127,13 +134,16 @@ ostream& display(ostream& out, ibex::Interval const & iv, bool const exact) {
 }
 
 nlohmann::json box::to_JSON() const {
-    nlohmann::json entry;
+    nlohmann::json j;
+    j["id"] = m_id;
+    nlohmann::json data;
     for (unsigned i = 0; i < size(); ++i) {
         string const & name = get_name(i);
         auto const & iv = get_value(i);
-        entry[name] = { iv.lb(), iv.ub() };
+        data[name] = { iv.lb(), iv.ub() };
     }
-    return entry;
+    j["iv"] = data;
+    return j;
 }
 
 ostream& display_diff(ostream& out, box const & b1, box const & b2) {
@@ -244,6 +254,8 @@ tuple<int, box, box> box::bisect_int_at(int i) const {
     b2.m_values[i] = ibex::Interval(mid_ceil, ub);
     b1.m_idx_last_branched = i;
     b2.m_idx_last_branched = i;
+    b1.m_id = gen_id();
+    b2.m_id = gen_id();
     DREAL_LOG_DEBUG << "box::bisect on " << (*m_vars)[i] << " : int = " << m_values[i]
                     << " into " << b1.m_values[i] << " and " << b2.m_values[i];
     return make_tuple(i, b1, b2);
@@ -260,6 +272,8 @@ tuple<int, box, box> box::bisect_real_at(int i) const {
     b2.m_values[i] = new_intervals.second;
     b1.m_idx_last_branched = i;
     b2.m_idx_last_branched = i;
+    b1.m_id = gen_id();
+    b2.m_id = gen_id();
     DREAL_LOG_DEBUG << "box::bisect on " << (*m_vars)[i] << " : real = " << m_values[i]
                     << " into " << b1.m_values[i] << " and " << b2.m_values[i];
     return make_tuple(i, b1, b2);

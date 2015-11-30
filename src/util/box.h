@@ -38,6 +38,7 @@ class box {
 private:
     // m_vars.size() == m_ivec.size()
     // Invariant: m_vars[i] ~ m_ivec[i]
+    unsigned m_id;
     std::shared_ptr<std::vector<Enode *>> m_vars;
     ibex::IntervalVector m_values;
     std::shared_ptr<std::unordered_map<std::string, int>> m_name_index_map;
