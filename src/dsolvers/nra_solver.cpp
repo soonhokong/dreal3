@@ -440,7 +440,15 @@ bool nra_solver::check(bool complete) {
     } else {
         // Incomplete Check ==> Prune Only
         try {
+            box old_box = m_box;
             m_ctc.prune(m_box, config);
+            if (config.nra_json) {
+                nlohmann::json prune_instr;
+                prune_instr["type"] = "prune";
+                prune_instr["old"] = old_box.to_JSON();
+                prune_instr["new"] = m_box.to_JSON();
+                config.nra_json_out << prune_instr << endl;
+            }
             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
         } catch (contractor_exception & e) {
             // Do nothing
