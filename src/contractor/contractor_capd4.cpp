@@ -976,7 +976,6 @@ contractor_capd_point::contractor_capd_point(box const & box, shared_ptr<ode_con
     m_output = ibex::BitSet::empty(box.size());
 }
 void contractor_capd_point::prune(box & b, SMTConfig & config) {
-    auto const start_time = steady_clock::now();
     thread_local static box old_box(b);
     old_box = b;
     DREAL_LOG_DEBUG << "contractor_capd_point::prune " << m_dir;
@@ -1049,22 +1048,26 @@ void contractor_capd_point::prune(box & b, SMTConfig & config) {
         DREAL_LOG_INFO << "T   : " << T;
         capd::DVector X = X_0;
         double current_time = 0.0;
+
+        // Move to T_lb
         while (current_time < T_lb) {
             (*m_timeMap)(T_lb, X, current_time);
         }
+
+        // Move to T_ub, while checking things up
         do {
-            // Handle Timeout
-            if (m_timeout > 0.0 && b.max_diam() > config.nra_precision) {
-                auto const end_time = steady_clock::now();
-                auto const time_diff_in_msec = std::chrono::duration<double, milli>(end_time - start_time).count();
-                DREAL_LOG_INFO << "ODE TIME: " << time_diff_in_msec << " / " << m_timeout;
-                if (time_diff_in_msec > m_timeout) {
-                    DREAL_LOG_FATAL << "ODE TIMEOUT!" << "\t"
-                                    << time_diff_in_msec << "msec / "
-                                    << m_timeout << "msec";
-                    throw contractor_exception("ODE TIMEOUT");
-                }
-            }
+            // // Handle Timeout
+            // if (m_timeout > 0.0 && b.max_diam() > config.nra_precision) {
+            //     auto const end_time = steady_clock::now();
+            //     auto const time_diff_in_msec = std::chrono::duration<double, milli>(end_time - start_time).count();
+            //     DREAL_LOG_INFO << "ODE TIME: " << time_diff_in_msec << " / " << m_timeout;
+            //     if (time_diff_in_msec > m_timeout) {
+            //         DREAL_LOG_FATAL << "ODE TIMEOUT!" << "\t"
+            //                         << time_diff_in_msec << "msec / "
+            //                         << m_timeout << "msec";
+            //         throw contractor_exception("ODE TIMEOUT");
+            //     }
+            // }
             // TODO(soonhok): implement this later
             // // Invariant Check
             // if (m_need_to_check_inv && !check_invariant(s, b, config)) {
@@ -1084,9 +1087,10 @@ void contractor_capd_point::prune(box & b, SMTConfig & config) {
                 // included = true if X is in X_t
                 bool included = true;
                 for (unsigned i = 0; i < X.dimension(); ++i) {
-                    if (!X_t[i].contains(X[i])) {
+                    if (X[i] < X_t[i].leftBound() - (config.nra_precision / 2) || X_t[i].rightBound() + (config.nra_precision / 2) < X[i]) {
                         included = false;
-                        // DREAL_LOG_FATAL << "X_t[" << i << "] = " << X_t[i] << "\t"
+                        // DREAL_LOG_FATAL << setprecision(16) << "NOT INCLUDED" << "\t"
+                        //                 << "X_t[" << i << "] = " << "[" << X_t[i].leftBound() << ", " << X_t[i].rightBound() << "]" << "\t"
                         //                 << "X[" << i << "] = " << X[i];
                         break;
                     }
@@ -1100,10 +1104,12 @@ void contractor_capd_point::prune(box & b, SMTConfig & config) {
 
                     m_eval_ctc.prune(b, config);
                     if (!b.is_empty()) {
-                        DREAL_LOG_INFO << "This box satisfies other non-linear constraints";
+                        // DREAL_LOG_FATAL << "This box satisfies other non-linear constraints";
                         return;
                     } else {
-                        DREAL_LOG_INFO << "This box failed to satisfy other non-linear constraints";
+                        // DREAL_LOG_FATAL << "This box failed to satisfy other non-linear constraints";
+                        // The sampling attempt failed. We need to restore the value of box using the saved old-box.
+                        b = old_box;
                     }
                 }
             }
@@ -1112,20 +1118,16 @@ void contractor_capd_point::prune(box & b, SMTConfig & config) {
         if (config.nra_ODE_show_progress) {
             cout << " [IntervalError]" << endl;
         }
-        b = old_box;
         throw contractor_exception(e.what());
     } catch (capd::ISolverException & e) {
         if (config.nra_ODE_show_progress) {
             cout << " [ISolverException]" << endl;
         }
-        b = old_box;
         throw contractor_exception(e.what());
     }
 
     // TODO(soonhok): need to update m_output vector, and used constraint here?
     DREAL_LOG_INFO << "CAPD_POINT failed to find a trace in the end";
-    // The sampling attempt failed. We need to restore the value of box using the saved old-box.
-    b = old_box;
 
     // auto const end_time = steady_clock::now();
     // auto const time_diff_in_msec = std::chrono::duration<double, milli>(end_time - start_time).count();
