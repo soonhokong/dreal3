@@ -120,6 +120,7 @@ private:
     std::unique_ptr<capd::IMap> m_vectorField;
     std::unique_ptr<capd::IOdeSolver> m_solver;
     std::unique_ptr<capd::ITimeMap> m_timeMap;
+    std::unordered_map<capd::IVector, std::vector<std::pair<capd::interval, capd::IVector>>> m_cache;
 
     bool inner_loop(capd::IOdeSolver & solver, capd::interval const & prevTime, capd::interval const T, std::vector<std::pair<capd::interval, capd::IVector>> & enclosures) const;
     bool check_invariant(capd::IVector const & v, box b, SMTConfig & config);
@@ -135,7 +136,6 @@ private:
                             std::vector<std::pair<capd::interval, capd::IVector>> & enclosures,
                             SMTConfig & config,
                             bool const add_all = false);
-
 
 public:
     contractor_capd_full(box const & box, std::shared_ptr<ode_constraint> const ctr, ode_direction const dir, unsigned const taylor_order, unsigned const grid_size, double const timeout = 0.0);

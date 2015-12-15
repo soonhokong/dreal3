@@ -436,10 +436,13 @@ bool filter(vector<pair<capd::interval, capd::IVector>> & enclosures, capd::IVec
     // 1) Intersect each v in enclosure with X_t.
     DREAL_LOG_DEBUG << "filter : enclosure.size = " << enclosures.size();
     enclosures.erase(remove_if(enclosures.begin(), enclosures.end(),
-                               [&X_t](pair<capd::interval, capd::IVector> & item) {
+                               [&X_t,&T](pair<capd::interval, capd::IVector> & item) {
                                    capd::IVector & v = item.second;
                                    // v = v union X_t
                                    DREAL_LOG_DEBUG << "before filter: " << v << "\t" << X_t;
+                                   if (item.first.leftBound() > T.rightBound()) {
+                                       return true;
+                                   }
                                    if (!intersection(v, X_t, v)) {
                                        return true;
                                    }
@@ -514,6 +517,7 @@ bool filter_point(vector<pair<double, capd::DVector>> & trace, capd::IVector & X
     return true;
 }
 
+// Update input box b using constraint pars_0 = pars_t
 box intersect_params(box & b, integral_constraint const & ic) {
     vector<Enode*> const & pars_0 = ic.get_pars_0();
     vector<Enode*> const & pars_t = ic.get_pars_t();
@@ -673,8 +677,7 @@ void contractor_capd_full::prune(box & b, SMTConfig & config) {
     auto const start_time = steady_clock::now();
     thread_local static box old_box(b);
     old_box = b;
-    DREAL_LOG_DEBUG << "contractor_capd_full::prune "
-                    << m_dir;
+    DREAL_LOG_DEBUG << "contractor_capd_full::prune " << m_dir;
     integral_constraint const & ic = m_ctr->get_ic();
     b = intersect_params(b, ic);
     if (b.is_empty()) {
@@ -723,93 +726,108 @@ void contractor_capd_full::prune(box & b, SMTConfig & config) {
 
     // General case: Time = [lb, ub] where ub > 0
     set_params(*m_vectorField, b, ic);
-    try {
-        if (config.nra_ODE_step > 0) {
-            m_solver->setStep(config.nra_ODE_step);
-        }
-        capd::IVector X_0 = extract_ivector(b, m_vars_0);
-        capd::IVector X_t = extract_ivector(b, m_vars_t);
-        ibex::Interval const & ibex_T = b[ic.get_time_t()];
-        capd::interval T(ibex_T.lb(), ibex_T.ub());
-        DREAL_LOG_INFO << "X_0 : " << X_0;
-        DREAL_LOG_INFO << "X_t : " << X_t;
-        DREAL_LOG_INFO << "T   : " << T;
-        Rect2Set s(X_0);
-        (*m_timeMap)(0.0, s);  // Rewind to 0.0
-        capd::interval prevTime(0.);
-        vector<pair<capd::interval, capd::IVector>> enclosures;
-        do {
-            // Handle Timeout
-            if (m_timeout > 0.0 && b.max_diam() > config.nra_precision) {
-                auto const end_time = steady_clock::now();
-                auto const time_diff_in_msec = std::chrono::duration<double, milli>(end_time - start_time).count();
-                DREAL_LOG_INFO << "ODE TIME: " << time_diff_in_msec << " / " << m_timeout;
-                if (time_diff_in_msec > m_timeout) {
-                    DREAL_LOG_FATAL << "ODE TIMEOUT!" << "\t"
-                                    << time_diff_in_msec << "msec / "
-                                    << m_timeout << "msec";
-                    throw contractor_exception("ODE TIMEOUT");
+    if (config.nra_ODE_step > 0) {
+        m_solver->setStep(config.nra_ODE_step);
+    }
+    capd::IVector X_0 = extract_ivector(b, m_vars_0);
+    capd::IVector X_t = extract_ivector(b, m_vars_t);
+    ibex::Interval const & ibex_T = b[ic.get_time_t()];
+    capd::interval T(ibex_T.lb(), ibex_T.ub());
+    DREAL_LOG_INFO << "X_0 : " << X_0;
+    DREAL_LOG_INFO << "X_t : " << X_t;
+    DREAL_LOG_INFO << "T   : " << T;
+    vector<pair<capd::interval, capd::IVector>> enclosures;
+
+    // Look up Cache
+    auto it = m_cache.find(X_0);
+    if (it != m_cache.end()) {
+        // DREAL_LOG_FATAL << "FOUND " << X_0 << "\t" << T << "\t" << m_cache.size();
+        enclosures = it->second;
+    } else {
+        // there is no saved enclosures for X_0 in m_cache, need to compute and save one;
+        try {
+            Rect2Set s(X_0);
+            (*m_timeMap)(0.0, s);  // Rewind to 0.0
+            capd::interval prevTime(0.);
+            do {
+                // Handle Timeout
+                if (m_timeout > 0.0 && b.max_diam() > config.nra_precision) {
+                    auto const end_time = steady_clock::now();
+                    auto const time_diff_in_msec = std::chrono::duration<double, milli>(end_time - start_time).count();
+                    DREAL_LOG_INFO << "ODE TIME: " << time_diff_in_msec << " / " << m_timeout;
+                    if (time_diff_in_msec > m_timeout) {
+                        DREAL_LOG_FATAL << "ODE TIMEOUT!" << "\t"
+                                        << time_diff_in_msec << "msec / "
+                                        << m_timeout << "msec";
+                        throw contractor_exception("ODE TIMEOUT");
+                    }
                 }
-            }
-            // Invariant Check
-            if (m_need_to_check_inv && !check_invariant(s, b, config)) {
-                break;
-            }
-            // Move s toward m_T.rightBound()
-            interruption_point();
-            (*m_timeMap)(T.rightBound(), s);
-            if (contain_nan(s)) {
-                DREAL_LOG_FATAL << "contractor_capd_full::prune - contains NaN";
-            }
-            if (T.leftBound() <= m_timeMap->getCurrentTime().rightBound()) {
-                //                     [     T      ]
-                // [     current Time     ]
-                bool invariantSatisfied = compute_enclosures(prevTime, T,  b, enclosures, config);
-                if (!invariantSatisfied) {
-                    DREAL_LOG_INFO << "contractor_capd_full::prune - invariant violated";
+                // Invariant Check
+                if (m_need_to_check_inv && !check_invariant(s, b, config)) {
                     break;
                 }
-            }
-            prevTime = m_timeMap->getCurrentTime();
+                // Move s toward m_T.rightBound()
+                interruption_point();
+                (*m_timeMap)(T.rightBound(), s);
+                if (contain_nan(s)) {
+                    DREAL_LOG_FATAL << "contractor_capd_full::prune - contains NaN";
+                }
+                if (T.leftBound() <= m_timeMap->getCurrentTime().rightBound()) {
+                    //                     [     T      ]
+                    // [     current Time     ]
+                    bool invariantSatisfied = compute_enclosures(prevTime, T,  b, enclosures, config);
+                    if (!invariantSatisfied) {
+                        DREAL_LOG_INFO << "contractor_capd_full::prune - invariant violated";
+                        break;
+                    }
+                }
+                prevTime = m_timeMap->getCurrentTime();
+                if (config.nra_ODE_show_progress) {
+                    cout << "\r"
+                         << "                                               "
+                         << "                                               ";
+                    cout << "\r"
+                         << "ODE Progress "
+                         << "[" << m_dir << "]"
+                         << ":  Time = " << setw(10) << fixed << setprecision(5) << right << prevTime.rightBound() << " / "
+                         << setw(7) << fixed << setprecision(2) << left << T.rightBound() << " "
+                         << setw(4) << right << int(prevTime.rightBound() / T.rightBound() * 100.0) << "%" << "  "
+                         << "Box Width = " << setw(10) << fixed << setprecision(5) << b.max_diam() << "\t";
+                    cout.flush();
+                }
+            } while (!m_timeMap->completed());
+        } catch (capd::intervals::IntervalError<double> & e) {
             if (config.nra_ODE_show_progress) {
-                cout << "\r"
-                     << "                                               "
-                     << "                                               ";
-                cout << "\r"
-                     << "ODE Progress "
-                     << "[" << m_dir << "]"
-                     << ":  Time = " << setw(10) << fixed << setprecision(5) << right << prevTime.rightBound() << " / "
-                     << setw(7) << fixed << setprecision(2) << left << T.rightBound() << " "
-                     << setw(4) << right << int(prevTime.rightBound() / T.rightBound() * 100.0) << "%" << "  "
-                     << "Box Width = " << setw(10) << fixed << setprecision(5) << b.max_diam() << "\t";
-                cout.flush();
+                cout << " [IntervalError]" << endl;
             }
-        } while (!m_timeMap->completed());
-        if (config.nra_ODE_show_progress) {
-            cout << " [Done] " << endl;
+            throw contractor_exception(e.what());
+        } catch (capd::ISolverException & e) {
+            if (config.nra_ODE_show_progress) {
+                cout << " [ISolverException]" << endl;
+            }
+            throw contractor_exception(e.what());
         }
-        if (enclosures.size() > 0 && filter(enclosures, X_t, T)) {
-            // SAT
-            update_box_with_ivector(b, m_vars_t, X_t);
-            // TODO(soonhok): Here we still assume that time_0 = zero.
-            b[ic.get_time_t()] = ibex::Interval(T.leftBound(), T.rightBound());
-            DREAL_LOG_DEBUG << "contractor_capd_full::prune: get non-empty set after filtering";
-        } else {
-            // UNSAT
-            DREAL_LOG_DEBUG << "contractor_capd_full::prune: get empty set after filtering";
-            b.set_empty();
-        }
-    } catch (capd::intervals::IntervalError<double> & e) {
-        if (config.nra_ODE_show_progress) {
-            cout << " [IntervalError]" << endl;
-        }
-        throw contractor_exception(e.what());
-    } catch (capd::ISolverException & e) {
-        if (config.nra_ODE_show_progress) {
-            cout << " [ISolverException]" << endl;
-        }
-        throw contractor_exception(e.what());
+        // DREAL_LOG_FATAL << "ADD   " << X_0 << "\t" << T;
+        // for (auto const & item : enclosures) {
+        //     DREAL_LOG_FATAL << item.first << "\t" << item.second;
+        // }
+        m_cache.emplace(X_0, enclosures);
     }
+    if (config.nra_ODE_show_progress) {
+        cout << " [Done] " << endl;
+    }
+    if (enclosures.size() > 0 && filter(enclosures, X_t, T)) {
+        // SAT
+        update_box_with_ivector(b, m_vars_t, X_t);
+        // TODO(soonhok): Here we still assume that time_0 = zero.
+        b[ic.get_time_t()] = ibex::Interval(T.leftBound(), T.rightBound());
+        DREAL_LOG_DEBUG << "contractor_capd_full::prune: get non-empty set after filtering";
+    } else {
+        // UNSAT
+        DREAL_LOG_DEBUG << "contractor_capd_full::prune: get empty set after filtering";
+        b.set_empty();
+    }
+
     vector<bool> diff_dims = b.diff_dims(old_box);
     for (unsigned i = 0; i < diff_dims.size(); i++) {
         if (diff_dims[i]) {
