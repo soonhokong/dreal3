@@ -514,19 +514,20 @@ bool filter_point(vector<pair<double, capd::DVector>> & trace, capd::IVector & X
     return true;
 }
 
+// Update par_0 and par_t entries in box b, using the intersection of them
 box intersect_params(box & b, integral_constraint const & ic) {
     vector<Enode*> const & pars_0 = ic.get_pars_0();
     vector<Enode*> const & pars_t = ic.get_pars_t();
-    capd::IVector X_0 = extract_ivector(b, pars_0);
-    capd::IVector const & X_t = extract_ivector(b, pars_t);
-    if (!intersection(X_0, X_t, X_0)) {
+    capd::IVector Par_0 = extract_ivector(b, pars_0);
+    capd::IVector const & Par_t = extract_ivector(b, pars_t);
+    if (!intersection(Par_0, Par_t, Par_0)) {
         // intersection is empty
         b.set_empty();
     } else {
-        // X_0 is the result of intersection of X_0 and X_t
-        // So, use it to update pars_0 and pars_t
-        update_box_with_ivector(b, ic.get_pars_0(), X_0);
-        update_box_with_ivector(b, ic.get_pars_t(), X_0);
+        // Par_0 is the result of intersection of Par_0 and Par_t
+        // use them to update pars_0 and pars_t in box b
+        update_box_with_ivector(b, ic.get_pars_0(), Par_0);
+        update_box_with_ivector(b, ic.get_pars_t(), Par_0);
     }
     return b;
 }
@@ -534,23 +535,22 @@ box intersect_params(box & b, integral_constraint const & ic) {
 template<typename T>
 void set_params(T & f, box const & b, integral_constraint const & ic) {
     vector<Enode*> const & pars_0 = ic.get_pars_0();
-    capd::IVector X_0 = extract_ivector(b, pars_0);
+    capd::IVector Par_0 = extract_ivector(b, pars_0);
     for (unsigned i = 0; i < pars_0.size(); i++) {
         string const & name = pars_0[i]->getCar()->getNameFull();
-        f.setParameter(name, X_0[i]);
-        DREAL_LOG_DEBUG << "set_param: " << name << " ==> " << X_0[i];
+        f.setParameter(name, Par_0[i]);
+        DREAL_LOG_DEBUG << "set_param: " << name << " ==> " << Par_0[i];
     }
 }
 
 template<typename T>
 void set_params_point(T & f, box const & b, integral_constraint const & ic) {
     vector<Enode*> const & pars_0 = ic.get_pars_0();
-    capd::IVector X_0 = extract_ivector(b, pars_0);
+    capd::IVector Par_0 = extract_ivector(b, pars_0);
     for (unsigned i = 0; i < pars_0.size(); i++) {
         string const & name = pars_0[i]->getCar()->getNameFull();
-        double const mid = X_0[i].leftBound() / 2.0 + X_0[i].rightBound() / 2.0;
-        f.setParameter(name, mid);
-        DREAL_LOG_DEBUG << "set_param_point: " << name << " ==> " << mid;
+        f.setParameter(name, Par_0[i].leftBound() / 2.0 + Par_0[i].rightBound() / 2.0);
+        DREAL_LOG_DEBUG << "set_param: " << name << " ==> " << Par_0[i];
     }
 }
 
@@ -975,11 +975,23 @@ contractor_capd_point::contractor_capd_point(box const & box, shared_ptr<ode_con
     // Output: Empty
     m_output = ibex::BitSet::empty(box.size());
 }
+
 void contractor_capd_point::prune(box & b, SMTConfig & config) {
-    auto const start_time = steady_clock::now();
-    thread_local static box old_box(b);
-    old_box = b;
     DREAL_LOG_DEBUG << "contractor_capd_point::prune " << m_dir;
+    if (!m_solver) {
+        // Trivial Case where there are only params and no real ODE vars.
+        return;
+    }
+    prune_with_params(b, config);
+    if (b.is_empty()) { throw contractor_exception("contractor_capd_point"); }
+    if (b[m_ctr->get_ic().get_time_t()].ub() == 0.0) {
+        prune_time_zero(b, config);
+    } else {
+        prune_core(b, config);
+    }
+}
+
+void contractor_capd_point::prune_with_params(box & b, SMTConfig &) {
     integral_constraint const & ic = m_ctr->get_ic();
     b = intersect_params(b, ic);
     if (b.is_empty()) {
@@ -992,146 +1004,138 @@ void contractor_capd_point::prune(box & b, SMTConfig & config) {
         m_used_constraints.insert(m_ctr);
         return;
     }
-    if (!m_solver) {
-        // Trivial Case where there are only params and no real ODE vars.
-        return;
-    }
+}
 
+// Check if 'iv' includes 'dv' within the bound of prec
+bool IV_includes_DV(capd::IVector const & iv, capd::DVector const & dv, double const prec) {
+    for (unsigned i = 0; i < dv.dimension(); ++i) {
+        if (dv[i] < iv[i].leftBound() - (prec / 2) || iv[i].rightBound() + (prec / 2) < dv[i]) {
+            DREAL_LOG_FATAL << "Not Included: " << dv[i] << "\t"
+                            << iv[i];
+            return false;
+        }
+    }
+    return true;
+}
+
+void contractor_capd_point::prune_time_zero(box & b, SMTConfig &) {
+    thread_local static box old_box(b);
+    old_box = b;
     // Special Case: Time = [0, 0]
     // Intersect X_0 and X_t and return
-    if (b[ic.get_time_t()].ub() == 0.0) {
-        for (unsigned i = 0; i < m_vars_0.size(); ++i) {
-            auto & iv_0_i = b[m_vars_0[i]];
-            auto & iv_t_i = b[m_vars_t[i]];
-            iv_0_i &= iv_t_i;
-            if (iv_0_i.is_empty()) {
-                b.set_empty();
-                m_used_constraints.insert(m_ctr);
-                m_output = m_input;
-                return;
-            } else {
-                iv_t_i = iv_0_i;
-            }
-        }
-        // Setup m_output and m_used_constraints for SAT case
-        vector<bool> diff_dims = b.diff_dims(old_box);
-        for (unsigned i = 0; i < diff_dims.size(); i++) {
-            if (diff_dims[i]) {
-                m_output.add(i);
-            }
-        }
-        if (!m_output.empty()) {
+    for (unsigned i = 0; i < m_vars_0.size(); ++i) {
+        auto & iv_0_i = b[m_vars_0[i]];
+        auto & iv_t_i = b[m_vars_t[i]];
+        iv_0_i &= iv_t_i;
+        if (iv_0_i.is_empty()) {
+            b.set_empty();
             m_used_constraints.insert(m_ctr);
+            m_output = m_input;
+            return;
+        } else {
+            iv_t_i = iv_0_i;
         }
-        return;
     }
+    // Setup m_output and m_used_constraints for SAT case
+    vector<bool> diff_dims = b.diff_dims(old_box);
+    for (unsigned i = 0; i < diff_dims.size(); i++) {
+        if (diff_dims[i]) {
+            m_output.add(i);
+        }
+    }
+    if (!m_output.empty()) {
+        m_used_constraints.insert(m_ctr);
+    }
+    return;
+}
 
-    // General case: Time = [lb, ub] where ub > 0
+// Prune v using inv_ctc. box b is needed to use inv_ctc.
+// Retrun false if invariant is violated.
+bool contractor_capd_point::check_invariant(capd::DVector const & dv, box b, SMTConfig & config) {
+    // 1. convert v into a box using b.
+    update_box_with_dvector(b, m_vars_t, dv);
+    // 2. check the converted box b, with inv_ctc contractor
+    auto const & invs = m_ctr->get_invs();
+    for (unsigned i = 0; i < invs.size(); ++i) {
+        shared_ptr<forallt_constraint> inv = invs[i];
+        Enode * inv_e = inv->get_enodes()[0];
+        if (inv_e->hasPolarity() && inv_e->getPolarity() == l_True) {
+            m_inv_ctcs[i].prune(b, config);
+            if (b.is_empty()) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+void contractor_capd_point::prune_core(box & b, SMTConfig & config) {
+    thread_local static box old_box(b);
+    old_box = b;
+    integral_constraint const & ic = m_ctr->get_ic();
+    DREAL_LOG_FATAL << "contractor_capd_point::prune_core " << ic.get_flow_id();
+
+    // Sample X_0 and Par_0
+    capd::DVector const X_0 = extract_dvector(b, m_vars_0);
+    capd::DVector const Par_0 = extract_dvector(b, ic.get_pars_0());
+    update_box_with_dvector(b, m_vars_0, X_0);
+    update_box_with_dvector(b, m_vars_0, Par_0);
     set_params_point(*m_vectorField, b, ic);
     try {
-        if (config.nra_ODE_step > 0) {
-            m_solver->setStep(config.nra_ODE_step);
-        }
-
-        // TODO(soonhok): for now, it always sample the midpoint of X_0
-        capd::DVector const X_0 = extract_dvector(b, m_vars_0);
-
-        // Here we update the current box b with the sampled X_0
-        update_box_with_dvector(b, m_vars_0, X_0);
-
+        if (config.nra_ODE_step > 0) { m_solver->setStep(config.nra_ODE_step); }
         capd::IVector X_t = extract_ivector(b, m_vars_t);
         ibex::Interval const & ibex_T = b[ic.get_time_t()];
         double T_lb = ibex_T.lb();
         double const T_ub = ibex_T.ub();
         capd::interval T(T_lb, T_ub);
-        DREAL_LOG_INFO << "X_0 : " << X_0;
-        DREAL_LOG_INFO << "X_t : " << X_t;
-        DREAL_LOG_INFO << "T   : " << T;
         capd::DVector X = X_0;
         double current_time = 0.0;
-        while (current_time < T_lb) {
-            (*m_timeMap)(T_lb, X, current_time);
-        }
+        // 1. Move to T_lb
+        while (current_time < T_lb) { (*m_timeMap)(T_lb, X, current_time); }
+        // 2. Move to T_ub, while checking things up
         do {
-            // Handle Timeout
-            if (m_timeout > 0.0 && b.max_diam() > config.nra_precision) {
-                auto const end_time = steady_clock::now();
-                auto const time_diff_in_msec = std::chrono::duration<double, milli>(end_time - start_time).count();
-                DREAL_LOG_INFO << "ODE TIME: " << time_diff_in_msec << " / " << m_timeout;
-                if (time_diff_in_msec > m_timeout) {
-                    DREAL_LOG_FATAL << "ODE TIMEOUT!" << "\t"
-                                    << time_diff_in_msec << "msec / "
-                                    << m_timeout << "msec";
-                    throw contractor_exception("ODE TIMEOUT");
-                }
-            }
-            // TODO(soonhok): implement this later
-            // // Invariant Check
-            // if (m_need_to_check_inv && !check_invariant(s, b, config)) {
-            //     break;
-            // }
             // Move s toward m_T.rightBound()
-            interruption_point();
-
             (*m_timeMap)(T_ub, X, current_time);
-            // DREAL_LOG_FATAL << current_time << " : "
-            //                 << "[" << T_lb << " / " << T_ub << "]\t" << X;
-            if (T_lb <= current_time) {
-                //                     [     T      ]
-                // [     current Time     ]
-                // TODO(soonhok): need to check the invariant
-
-                // included = true if X is in X_t
-                bool included = true;
-                for (unsigned i = 0; i < X.dimension(); ++i) {
-                    if (!X_t[i].contains(X[i])) {
-                        included = false;
-                        // DREAL_LOG_FATAL << "X_t[" << i << "] = " << X_t[i] << "\t"
-                        //                 << "X[" << i << "] = " << X[i];
-                        break;
-                    }
+            if (m_need_to_check_inv && !check_invariant(X, b, config)) {
+                // DREAL_LOG_FATAL << "contractor_capd_point::prune_core -- invariant violated";
+                continue;
+            }
+            if (IV_includes_DV(X_t, X, config.nra_precision)) {
+                // Need to check whether (X_0, current_time, X) satisfies other constraints (i.e. guard)
+                // To do so, we update the current box with (X_0, current_time, X),
+                // and check this updated box with eval_ctc.
+                update_box_with_dvector(b, m_vars_t, X);
+                b[ic.get_time_t()] = current_time;
+                m_eval_ctc.prune(b, config);
+                if (!b.is_empty()) {
+                    DREAL_LOG_FATAL << "This box satisfies other non-linear constraints"
+                                    << "\t" << ic.get_flow_id();
+                    return;
+                } else {
+                    DREAL_LOG_FATAL << "This box failed to satisfy other non-linear constraints";
+                    // The sampling attempt failed. We need to restore the value of box using the saved old-box.
+                    b = old_box;
                 }
-                if (included) {
-                    // Need to check whether (X_0, current_time, X) satisfies other constraints (i.e. guard)
-                    // To do so, we update the current box with (X_0, current_time, X),
-                    // and check this updated box with eval_ctc.
-                    update_box_with_dvector(b, m_vars_t, X);
-                    b[ic.get_time_t()] = current_time;
-
-                    m_eval_ctc.prune(b, config);
-                    if (!b.is_empty()) {
-                        DREAL_LOG_INFO << "This box satisfies other non-linear constraints";
-                        return;
-                    } else {
-                        DREAL_LOG_INFO << "This box failed to satisfy other non-linear constraints";
-                    }
-                }
+            } else {
+                DREAL_LOG_FATAL << "NOT INCLUDED";
             }
         } while (current_time < T_ub);
     } catch (capd::intervals::IntervalError<double> & e) {
         if (config.nra_ODE_show_progress) {
             cout << " [IntervalError]" << endl;
         }
-        b = old_box;
         throw contractor_exception(e.what());
     } catch (capd::ISolverException & e) {
         if (config.nra_ODE_show_progress) {
             cout << " [ISolverException]" << endl;
         }
-        b = old_box;
         throw contractor_exception(e.what());
     }
-
     // TODO(soonhok): need to update m_output vector, and used constraint here?
-    DREAL_LOG_INFO << "CAPD_POINT failed to find a trace in the end";
-    // The sampling attempt failed. We need to restore the value of box using the saved old-box.
-    b = old_box;
-
-    // auto const end_time = steady_clock::now();
-    // auto const time_diff_in_msec = std::chrono::duration<double, milli>(end_time - start_time).count();
-    // DREAL_LOG_FATAL << "SAMPLING TIME: " << time_diff_in_msec;
-    throw contractor_exception("CAPD_POINT failed");
+    DREAL_LOG_FATAL << "contractor_capd_point::prune_core - failed to find a trace in the end";
+    b.set_empty();
 }
+
 ostream & contractor_capd_point::display(ostream & out) const {
     out << "contractor_capd_point("
         << m_dir << ", "

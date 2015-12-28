@@ -99,10 +99,14 @@ private:
     std::unique_ptr<capd::DMap> m_vectorField;
     std::unique_ptr<capd::DOdeSolver> m_solver;
     std::unique_ptr<capd::DTimeMap> m_timeMap;
+    bool check_invariant(capd::DVector const & v, box b, SMTConfig & config);
 
 public:
     contractor_capd_point(box const & box, std::shared_ptr<ode_constraint> const ctr, contractor const & eval_ctc, ode_direction const dir, unsigned const taylor_order, double const timeout = 0.0);
     void prune(box & b, SMTConfig & config);
+    void prune_core(box & b, SMTConfig & config);
+    void prune_with_params(box & b, SMTConfig & config);
+    void prune_time_zero(box & b, SMTConfig & config);
     std::ostream & display(std::ostream & out) const;
 };
 
