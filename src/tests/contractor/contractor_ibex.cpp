@@ -200,7 +200,7 @@ TEST_CASE("ibex_polytope") {
     unordered_set<Enode*> var_set({var_x, var_y, var_z});
     auto nc1 = make_shared<nonlinear_constraint>(node_eq1, var_set, true);
     auto nc2 = make_shared<nonlinear_constraint>(node_eq2, var_set, true);
-    contractor c = mk_contractor_ibex_polytope(0.001, {var_x, var_y, var_z}, {nc1, nc2});
+    contractor c = mk_contractor_ibex_polytope(0.001, var_set, {nc1, nc2});
     cerr << *nc1 << endl;
     cerr << *nc2 << endl;
     cerr << b << endl;

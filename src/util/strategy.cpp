@@ -135,7 +135,7 @@ contractor default_strategy::build_contractor(box const & box,
     ctcs.push_back(mk_contractor_int(box));
     // 2.4. Build generic forall contractors
     for (auto const & generic_forall_ctr : generic_forall_ctrs) {
-        ctcs.push_back(mk_contractor_generic_forall(box, generic_forall_ctr));
+        ctcs.push_back(mk_contractor_fixpoint(default_strategy::term_cond, mk_contractor_generic_forall(box, generic_forall_ctr)));
     }
 
     if (complete && ode_ctrs.size() > 0) {

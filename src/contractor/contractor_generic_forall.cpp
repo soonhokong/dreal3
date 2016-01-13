@@ -489,7 +489,7 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
     auto vars = b.get_vars();
     unordered_set<Enode*> const var_set(vars.begin(), vars.end());
     for (Enode * e : vec) {
-        if (!e->get_exist_vars().empty()) {
+        // if (!e->get_exist_vars().empty()) {
             lbool polarity = p ? l_True : l_False;
             if (e->isNot()) {
                 polarity = !polarity;
@@ -510,7 +510,7 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
                 m_used_constraints.insert(used_ctrs.begin(), used_ctrs.end());
                 boxes.emplace_back(bt);
             }
-        }
+        // }
     }
     b = hull(boxes);
     return;

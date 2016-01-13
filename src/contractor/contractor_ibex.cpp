@@ -481,7 +481,16 @@ contractor mk_contractor_ibex_newton(box const & box, shared_ptr<nonlinear_const
 contractor mk_contractor_ibex_hc4(vector<Enode *> const & vars, vector<shared_ptr<nonlinear_constraint>> const & ctrs) {
     return contractor(make_shared<contractor_ibex_hc4>(vars, ctrs));
 }
+contractor mk_contractor_ibex_hc4(unordered_set<Enode *> const & var_set, vector<shared_ptr<nonlinear_constraint>> const & ctrs) {
+    vector<Enode*> vars(var_set.begin(), var_set.end());
+    return contractor(make_shared<contractor_ibex_hc4>(vars, ctrs));
+}
 contractor mk_contractor_ibex_polytope(double const prec, vector<Enode *> const & vars, vector<shared_ptr<nonlinear_constraint>> const & ctrs) {
     return contractor(make_shared<contractor_ibex_polytope>(prec, vars, ctrs));
 }
+contractor mk_contractor_ibex_polytope(double const prec, unordered_set<Enode *> const & var_set, vector<shared_ptr<nonlinear_constraint>> const & ctrs) {
+    vector<Enode*> vars(var_set.begin(), var_set.end());
+    return contractor(make_shared<contractor_ibex_polytope>(prec, vars, ctrs));
+}
+
 }  // namespace dreal
