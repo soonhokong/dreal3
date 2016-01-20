@@ -77,15 +77,6 @@ using std::vector;
 
 namespace dreal {
 
-static unordered_map<Enode*, ibex::Interval> make_subst_from_value(box const & b, unordered_set<Enode *> const & vars) {
-    unordered_map<Enode*, ibex::Interval> subst;
-    for (Enode * const var : vars) {
-        auto value = b[var];
-        subst.emplace(var, value);
-    }
-    return subst;
-}
-
 contractor_generic_forall::contractor_generic_forall(box const & b, shared_ptr<generic_forall_constraint> const ctr)
     : contractor_cell(contractor_kind::FORALL), m_ctr(ctr) {
     m_input = ibex::BitSet::empty(b.size());
@@ -425,19 +416,9 @@ box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_v
 }
 
 box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) const {
-    // static unsigned under_approx = 0;
-    // static unsigned over_approx = 0;
     box counterexample = find_CE_via_underapprox(b, forall_vars, vec, p, config);
-    if (!counterexample.is_empty()) {
-        // ++under_approx;
-        // cerr << "WE USE UNDERAPPROX: " << under_approx << "/" << over_approx<< "/" << (under_approx + over_approx) << endl;
-        // cerr << counterexample << endl;
-    } else {
+    if (counterexample.is_empty()) {
         counterexample = find_CE_via_overapprox(b, forall_vars, vec, p, config);
-        // ++over_approx;
-        // cerr << "WE USE FULL       : " << under_approx << "/" << over_approx << "/" << (under_approx + over_approx)
-        //      << " " << counterexample.is_empty() << endl
-        //      << counterexample << endl;
     }
     if (!counterexample.is_empty() && config.nra_local_opt) {
         return refine_CE_with_nlopt(counterexample, vec);
@@ -453,40 +434,44 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
         forall_vars.insert(vars.begin(), vars.end());
     }
 
-    unordered_map<Enode*, ibex::Interval> subst;
-    if (!forall_vars.empty()) {
-        // Step 2. Find a counter-example
-        //         Solve(¬ l_1 ∧ ¬ l_2 ∧ ... ∧ ¬ l_n)
-        //
-        //         Make each ¬ l_i as a contractor ctc_i
-        //         Make a fixed_point contractor with ctc_is.
-        //         Pass it to icp::solve
-
-        box counterexample = find_CE(b, forall_vars, vec, p, config);
-        if (counterexample.is_empty()) {
-            // Step 2.1. (NO Counterexample)
-            //           Return B.
-            DREAL_LOG_DEBUG << "handle_disjunction: no counterexample found." << endl
-                            << "current box = " << endl
-                            << b << endl;
-            return;
-        } else {
-            // Step 2.2. (There IS a counterexample C)
-            //
-            //      Using C, prune B.
-            //
-            // We've found a counterexample (c1, c2) where ¬ f(c1, c2) holds
-            // Prune X using a point 'y = c2'. (technically, a point in c2, which is an interval)
-            subst = make_subst_from_value(counterexample, forall_vars);
-        }
+    if (forall_vars.empty()) {
+        // There is no forall variables. There is nothing to do.
+        DREAL_LOG_DEBUG << "contractor_generic_forall::handle_disjunction -- end" << endl;
+        return;
+    }
+    // Step 1. Find a counter-example
+    //         Solve(¬ l_1 ∧ ¬ l_2 ∧ ... ∧ ¬ l_n)
+    //
+    //   Make each ¬ l_i as a contractor ctc_i
+    //   Make a fixed_point contractor with ctc_is.
+    //   Pass it to icp::solve
+    box counterexample = find_CE(b, forall_vars, vec, p, config);
+    if (counterexample.is_empty()) {
+        // Step 1.1. (NO Counterexample), return B
+        DREAL_LOG_DEBUG << "handle_disjunction: no counterexample found." << endl
+                        << "current box = " << endl
+                        << b << endl;
+        return;
     }
 
-    // Step 3. Compute B_i = prune(B, l_i)
-    //         Update B with ∨ B_i
-    //                       i
+    // Step 2.
+    //   Counterexample found, Compute B_i = prune(B, l_i)
+    //   Update B with ∨ B_i
+    //                 i
+
+    // Relax the assignments for exist variables in the counterexample (using b)
+    // We only use the values for the universally quantified variables in the CE
+    DREAL_LOG_DEBUG << "Counterexample Found:" << endl
+                    << counterexample << endl;
+
+    for (unsigned i = 0; i < b.size(); ++i) {
+        counterexample[b.get_name(i)] = b[i];
+    }
+
     thread_local static vector<box> boxes;
     boxes.clear();
-    auto vars = b.get_vars();
+
+    auto vars = counterexample.get_vars();
     unordered_set<Enode*> const var_set(vars.begin(), vars.end());
     for (Enode * e : vec) {
         if (!e->get_exist_vars().empty()) {
@@ -495,15 +480,15 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
                 polarity = !polarity;
                 e = e->get1st();
             }
-            auto ctr = make_shared<nonlinear_constraint>(e, var_set, polarity, subst);
+            auto ctr = make_shared<nonlinear_constraint>(e, var_set, polarity);
             if (ctr->get_var_array().size() == 0) {
-                auto result = ctr->eval(b);
+                auto result = ctr->eval(counterexample);
                 if (result.first != false) {
-                    boxes.emplace_back(b);
+                    boxes.emplace_back(counterexample);
                 }
             } else {
                 contractor ctc = mk_contractor_ibex_fwdbwd(ctr);
-                box bt(b);
+                box bt(counterexample);
                 ctc.prune(bt, config);
                 m_output.union_with(ctc.output());
                 unordered_set<shared_ptr<constraint>> const & used_ctrs = ctc.used_constraints();
@@ -512,7 +497,12 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
             }
         }
     }
-    b = hull(boxes);
+    auto ret_hull = hull(boxes);
+
+    // Need to update b by copying values in ret_hull. Note that b doesn't include forall variables while ret_hull does
+    for (unsigned i = 0; i < b.size(); ++i) {
+        b[i] = ret_hull[b.get_name(i)];
+    }
     return;
 }
 
