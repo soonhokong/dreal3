@@ -211,6 +211,7 @@ struct SMTConfig
   bool         nra_polytope;                  // use polytope contractor in IBEX
   bool         nra_simp;                      // use simplification in preprocessing
   bool         nra_ncbt;                      // use nonchronological backtracking in icp
+  bool         nra_sat_icp;                   // use sat+icp algorithm
   bool         nra_local_opt;                 // use local optimization to refine counter example (for exist-forall problems)
   bool         nra_worklist_fp;               // use worklist fixpoint algorithm
   bool         nra_shrink_for_dop;            // shrink forall domain for dOp optimization
