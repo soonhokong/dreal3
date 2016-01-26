@@ -20,7 +20,6 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include <iostream>
 #include <random>
 #include <tuple>
-#include <tuple>
 #include <unordered_set>
 #include <vector>
 #include "icp/icp.h"
@@ -192,7 +191,7 @@ box ncbt_icp::solve(box b, contractor & ctc, SMTConfig & config) {
 }
 
 random_icp::random_icp(contractor & ctc, SMTConfig & config)
-    : m_ctc(ctc), m_config(config), m_rg(m_config.nra_random_seed + random_device{}()), m_dist(0, 1) {
+    : m_ctc(ctc), m_config(config), m_rg(m_config.nra_random_seed + random_device { }()), m_dist(0, 1) {
 }
 
 box random_icp::solve(box b, double const precision ) {

@@ -1,5 +1,6 @@
 SET(DREAL_SRCS ${DREAL_SRCS}
   ${CMAKE_CURRENT_LIST_DIR}/icp.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/sat_icp.cpp
   PARENT_SCOPE)
 
 # add_library(dsolvers nra_solver.cpp)
