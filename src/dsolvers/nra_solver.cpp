@@ -430,7 +430,9 @@ bool nra_solver::check(bool complete) {
     m_ctc = stg.build_contractor(m_box, m_stack, complete, config);
     if (complete) {
         // Complete Check ==> Run ICP
-        if (config.nra_ncbt) {
+        if (config.nra_sat_icp) {
+            m_box = sat_icp::solve(m_box, m_ctc, config);
+        } else if (config.nra_ncbt) {
             m_box = ncbt_icp::solve(m_box, m_ctc, config);
         } else {
             m_box = naive_icp::solve(m_box, m_ctc, config);
