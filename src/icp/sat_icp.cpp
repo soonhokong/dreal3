@@ -78,7 +78,7 @@ private:
     unordered_map<tuple<Enode*, double>, int> m_abs_map;
 
 public:
-    int add(Enode* v, double bound) {
+    int add(Enode* v, double const bound) {
         auto p = make_tuple(v, bound);
         auto const it = m_abs_map.find(p);
         if (it == m_abs_map.end()) {
@@ -93,7 +93,7 @@ public:
     int get_num_vars() const {
         return m_num_vars;
     }
-    int lookup(Enode * v, double bound,) const {
+    int lookup(Enode * v, double const bound) const {
         return m_abs_map.at(make_tuple(v, bound));
     }
 
@@ -104,7 +104,7 @@ public:
         for (int i = 1; i <= m_num_vars; ++i) {
             auto t = lookup(i);
             DREAL_LOG_INFO << "B" << i << "\t <---> \t"
-                           << get<0>(t) " <= " << get<1>(t);
+                           << get<0>(t) << " <= " << get<1>(t);
         }
     }
 };
@@ -179,8 +179,8 @@ public:
         //     \/ !I1_j \/ I2_n
         //     j
         for (Enode * v : used_vars) {
-            double const lb = b[v].lb();
-            double const ub = b[v].ub();
+            double const lb = b1[v].lb();
+            double const ub = b1[v].ub();
             add_neg_intv(lb, v, ub);  // !(lb <= v <= ub)
         }
 
@@ -211,7 +211,7 @@ public:
     }
 
     // Add B => (B[v].lb <= v <= m) xor (m <= v <= B[v].ub)
-    void add_branching(box const & b, Enode * v, double m) {
+    void add_branching(box const & b, Enode * v, double const m) {
         // TODO(soonhok): only do this if v m is not in the store
         double const lb = b[v].lb();
         double const ub = b[v].ub();
@@ -221,13 +221,13 @@ public:
 
         //  1.1 part:
         //   B => (l <= v) \/ (m <= v) --> B => (l <= v) --> B <= !(v <= l)
-        add_imply(b, -m.store.add(v, lb));
+        add_imply(b, -m_store.add(v, lb));
         //   B => (l <= v) \/ (v <= u) --> B => !(v <= l) \/ (v <= u)
-        add_imply(b, m.store.add(v, ), m.store.add(v, ));
+        add_imply(b, -m_store.add(v, lb), m_store.add(v, ub));
         //   B => (v <= m) \/ (m <= v) --> B => True
         //   --> Nothing to ADD!
         //   B => (v <= m) \/ (v <= u) --> B => (v <= m) \/ (v <= u) --> B => (v <= u)
-        add_imply(b, m.store.add(v, u));
+        add_imply(b, m_store.add(v, ub));
 
         //  1.2 part:
         //   B => !(l <= v /\ v <= m) \/ !(m <= v /\ v <= u)
@@ -273,11 +273,12 @@ public:
                 // b_i = False
                 // ==> (bound <= v)
                 assert(r == -1);
-                b[v] &= ibex::Interval(bound, b[v].ub())
+                b[v] &= ibex::Interval(bound, b[v].ub());
             }
         }
+        return b;
     }
-}
+};
 
 box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
     thread_local static std::unordered_set<std::shared_ptr<constraint>> used_constraints;
@@ -305,7 +306,7 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             // Case 1: SAT solver found a satisfying Boolean assignment
             // 1.1. Concretize the satisfying Boolean assignment into a conjunction of constraints
             // Check each Boolean Variable and if partially assigned to be true, shrink the interval
-            DREAL_LOG_INFO << "store.get_num_vars() = " << store.get_num_vars();
+            // DREAL_LOG_INFO << "store.get_num_vars() = " << store.get_num_vars();
             b = pw.reduce_using_model(initial_box);
             DREAL_LOG_INFO << "Current Box = " << "\n"
                             << b;
@@ -402,7 +403,6 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             DREAL_LOG_INFO << "SAT Solver failed.";
         }
     }
-    picosat_reset(psat);
     ctc.set_used_constraints(used_constraints);
     return b;
 }
