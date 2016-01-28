@@ -129,11 +129,8 @@ public:
     // Add blocking clause B1 => B2, but generalize it using used_vars
     void add_generalized_blocking_box(box const & b1, box const & b2, std::unordered_set<Enode *> const & used_vars);
 
-    // Add B => l1
-    void add_imply(box const & b, int l1);
-
-    // Add B => l1 \/ l2
-    void add_imply(box const & b, int l1, int l2);
+    // Add B => l1 \/ l2 \/ l3 \/ l4
+    void add_imply(box const & b, int const l1, int const l2 = 0, int const l3 = 0, int const l4 = 0);
 
     // Add B => (B[v].lb <= v <= m) xor (m <= v <= B[v].ub)
     void add_branching(box const & b, Enode * v, double const m);

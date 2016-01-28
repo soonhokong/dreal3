@@ -156,12 +156,8 @@ namespace dreal {
         }
     }
 
-    // Add B => l1
-    void picosat_wrapper::add_imply(box const & b, int l1) {
-        add_imply(b, l1, 0);
-    }
-    // Add B => l1 \/ l2
-    void picosat_wrapper::add_imply(box const & b, int l1, int l2) {
+    // Add B => l1 \/ l2 \/ l3 \/ l4
+    void picosat_wrapper::add_imply(box const & b, int const l1, int const l2, int const l3, int const l4) {
         // Add !B
         for (Enode * v : b.get_vars()) {
             double const lb = b[v].lb();
@@ -175,6 +171,12 @@ namespace dreal {
         picosat_add(m_psat, l1);
         if (l2) {
             picosat_add(m_psat, l2);
+            if (l3) {
+                picosat_add(m_psat, l3);
+                if (l4) {
+                    picosat_add(m_psat, l4);
+                }
+            }
         }
         picosat_add(m_psat, 0);
         DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - !B => " << l1 << " " << l2;
@@ -203,8 +205,7 @@ namespace dreal {
         //   B => !(l <= v /\ v <= m) \/ !(m <= v /\ v <= u)
         //   B => !(l <= v) \/ !(v <= m) \/ !(m <= v) /\ !(v <= u)
         //   B =>  (v <= l) \/ !(v <= m) \/  (v <= m) /\ !(v <= u)
-        //   B => True (because of "!(v <= m) \/ (v <= m)")
-        //   --> Nothing to ADD!
+        add_imply(b, m_store.add(v, lb), -m_store.add(v, m), m_store.add(v, m), -m_store.add(v, ub));
 
         // 2. Need to provide ordering among (v <= lb), (v <= m), (v <= ub)
         // (v <= lb) => (v <= m) --> !(v <= lb) \/ (v <= m)
