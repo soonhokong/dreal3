@@ -54,6 +54,8 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
     box const initial_box(b);
     // Step 2. Main Part
     while (true) {
+        DREAL_LOG_FATAL << "\n\n";
+        pw.debug_print();
         int ret = pw.check_sat();
         if (ret == PICOSAT_SATISFIABLE) {
             DREAL_LOG_FATAL << "SAT solver found a satisfying Boolean assignment";
@@ -74,11 +76,11 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
             // Collect Used Variables
             unordered_set<Enode *> used_vars;
-            used_vars.clear();
             for (auto const & used_ctr : ctc.used_constraints()) {
                 auto const this_used_vars = used_ctr->get_vars();
                 used_vars.insert(this_used_vars.begin(), this_used_vars.end());
             }
+            DREAL_LOG_FATAL << "|USED VARS| = " << used_vars.size();
 
             if (b.is_empty()) {
                 DREAL_LOG_FATAL << "After Pruning, it became an empty set.";

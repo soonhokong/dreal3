@@ -111,26 +111,39 @@ public:
 
     // Add: v <= bound
     void add_le(Enode * v, double const bound);
+
     // Add: bound <= v
     void add_le(double const bound, Enode* v);
+
     // Add: lb <= v <= ub
     void add_intv(double const lb, Enode* v, double const ub);
+
     // Add: !(lb <= v /\ v <= ub)
     void add_neg_intv(double const lb, Enode* v, double const ub);
+
     void add_box(box const & b);
+
     // Add blocking clause ¬B, but generalize it using used_vars
     void add_generalized_blocking_box(box const & b, std::unordered_set<Enode *> const & used_vars);
+
     // Add blocking clause B1 => B2, but generalize it using used_vars
     void add_generalized_blocking_box(box const & b1, box const & b2, std::unordered_set<Enode *> const & used_vars);
+
     // Add B => l1
     void add_imply(box const & b, int l1);
+
     // Add B => l1 \/ l2
     void add_imply(box const & b, int l1, int l2);
+
     // Add B => (B[v].lb <= v <= m) xor (m <= v <= B[v].ub)
     void add_branching(box const & b, Enode * v, double const m);
+
     int check_sat();
+
     // Precondition: check_sat() == PICOSAT_SATISFIABLE
     // Reduce the given box b into a smaller box using SAT model
-    box reduce_using_model(box b);
+    box reduce_using_model(box b) const;
+
+    void debug_print() const;
 };
 }  // namespace dreal

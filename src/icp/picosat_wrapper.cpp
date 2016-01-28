@@ -39,7 +39,7 @@ namespace dreal {
     void picosat_wrapper::add_le(Enode * v, double const bound) {
         picosat_add(m_psat, m_store.add(v, bound));
         picosat_add(m_psat, 0);
-        DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - " << v << " <= " << bound;
+        DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - (" << v << " <= " << bound << ")";
     }
     // Add: bound <= v
     void picosat_wrapper::add_le(double const bound, Enode* v) {
@@ -48,7 +48,7 @@ namespace dreal {
         // anyway.
         picosat_add(m_psat, -m_store.add(v, bound));
         picosat_add(m_psat, 0);
-        DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - " << bound << " <= " << v;
+        DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - (" << bound << " <= " << v << ")";
     }
     // Add: lb <= v <= ub
     void picosat_wrapper::add_intv(double const lb, Enode* v, double const ub) {
@@ -60,8 +60,8 @@ namespace dreal {
         picosat_add(m_psat, m_store.add(v, lb));
         picosat_add(m_psat, -m_store.add(v, ub));
         picosat_add(m_psat, 0);
-        DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - " << v << " <= " << lb << " \\/ "
-                        << ub << " <= " << v;
+        DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - (" << v << " <= " << lb << ") \\/ "
+                        << "(" << ub << " <= " << v << ")";
     }
     void picosat_wrapper::add_box(box const & b) {
         auto const & vars = b.get_vars();
@@ -83,6 +83,16 @@ namespace dreal {
     }
     // Add blocking clause B1 => B2, but generalize it using used_vars
     void picosat_wrapper::add_generalized_blocking_box(box const & b1, box const & b2, unordered_set<Enode *> const & used_vars) {
+        DREAL_LOG_FATAL << "picosat_wrapper::add_generalized_blocking_box";
+        DREAL_LOG_FATAL << "box1 = " << b1;
+        DREAL_LOG_FATAL << "box2 = " << b2;
+        if (used_vars.empty()) {
+            DREAL_LOG_FATAL << "used var = empty!";
+        } else {
+            for (Enode* v : used_vars) {
+                DREAL_LOG_FATAL << "used var = " << v;
+            }
+        }
         // B1 => B2
         //
         // /\ I1_j => /\ I2_i
@@ -181,13 +191,13 @@ namespace dreal {
 
         //  1.1 part:
         //   B => (l <= v) \/ (m <= v) --> B => (l <= v) --> B <= !(v <= l)
-        add_imply(b, -m_store.add(v, lb));
+        add_imply(b, -m_store.add(v, lb), -m_store.add(v, m));
         //   B => (l <= v) \/ (v <= u) --> B => !(v <= l) \/ (v <= u)
         add_imply(b, -m_store.add(v, lb), m_store.add(v, ub));
         //   B => (v <= m) \/ (m <= v) --> B => True
-        //   --> Nothing to ADD!
+        add_imply(b,  m_store.add(v, m), -m_store.add(v, m));
         //   B => (v <= m) \/ (v <= u) --> B => (v <= m) \/ (v <= u) --> B => (v <= u)
-        add_imply(b, m_store.add(v, ub));
+        add_imply(b,  m_store.add(v, m),  m_store.add(v, ub));
 
         //  1.2 part:
         //   B => !(l <= v /\ v <= m) \/ !(m <= v /\ v <= u)
@@ -217,7 +227,7 @@ namespace dreal {
     }
     // Precondition: check_sat() == PICOSAT_SATISFIABLE
     // Reduce the given box b into a smaller box using SAT model
-    box picosat_wrapper::reduce_using_model(box b) {
+    box picosat_wrapper::reduce_using_model(box b) const {
         for (int i = 1; i <= m_store.get_num_vars(); i++) {
             int const r = picosat_deref_partial(m_psat, i);
             if (r == 0) { continue;  /* UNKNOWN */ }
@@ -242,4 +252,19 @@ namespace dreal {
         }
         return b;
     }
+
+    void picosat_wrapper::debug_print() const {
+        DREAL_LOG_FATAL << "======================";
+        for (int i = 1; i <= m_store.get_num_vars(); i++) {
+            tuple<Enode*, double> pred = m_store.lookup(i);
+            Enode * v = get<0>(pred);
+            double const bound = get<1>(pred);
+            DREAL_LOG_FATAL << "b" << i << " := "
+                            << "(" << v << " <= " << bound << ")";
+        }
+        DREAL_LOG_FATAL << "~~~~~~~~~~~~~~~~~~~~~~";
+        picosat_print(m_psat, stderr);
+        DREAL_LOG_FATAL << "======================";
+    }
+
 }  // namespace dreal
