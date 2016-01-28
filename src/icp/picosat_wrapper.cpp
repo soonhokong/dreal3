@@ -41,6 +41,7 @@ namespace dreal {
         picosat_add(m_psat, 0);
         DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - (" << v << " <= " << bound << ")";
     }
+
     // Add: bound <= v
     void picosat_wrapper::add_le(double const bound, Enode* v) {
         // Note: Strictly, !(x<=v) is (v < x) but we consider this as
@@ -50,10 +51,12 @@ namespace dreal {
         picosat_add(m_psat, 0);
         DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - (" << bound << " <= " << v << ")";
     }
+
     // Add: lb <= v <= ub
     void picosat_wrapper::add_intv(double const lb, Enode* v, double const ub) {
         add_le(lb, v); add_le(v, ub);
     }
+
     // Add: !(lb <= v /\ v <= ub)
     void picosat_wrapper::add_neg_intv(double const lb, Enode* v, double const ub) {
         // That is, v <= lb \/ !(v <= ub)
@@ -63,6 +66,7 @@ namespace dreal {
         DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - (" << v << " <= " << lb << ") \\/ "
                         << "(" << ub << " <= " << v << ")";
     }
+
     void picosat_wrapper::add_box(box const & b) {
         auto const & vars = b.get_vars();
         for (unsigned i = 0; i < b.size(); ++i) {
@@ -81,6 +85,7 @@ namespace dreal {
             add_neg_intv(lb, v, ub);  // !(lb <= v <= ub)
         }
     }
+
     // Add blocking clause B1 => B2, but generalize it using used_vars
     void picosat_wrapper::add_generalized_blocking_box(box const & b1, box const & b2, unordered_set<Enode *> const & used_vars) {
         DREAL_LOG_FATAL << "picosat_wrapper::add_generalized_blocking_box";
@@ -112,18 +117,21 @@ namespace dreal {
             for (Enode * v_j : used_vars) {
                 double const i1_lb = b1[v_j].lb();
                 double const i1_ub = b1[v_j].ub();
-                picosat_add(m_psat, m_store.add(v_j, i1_lb));
+                // (v_j <= i1.lb) \/ !(v_j <= i1.ub)
+                picosat_add(m_psat,  m_store.add(v_j, i1_lb));
                 picosat_add(m_psat, -m_store.add(v_j, i1_ub));
             }
             double const i2_lb = b2[v_i].lb();
             picosat_add(m_psat, -m_store.add(v_i, i2_lb));
             picosat_add(m_psat, 0);
+
             // \/ !I1_j \/ (v_i <= b2[v_i].ub)
             //  j
             for (Enode * v_j : used_vars) {
                 double const i1_lb = b1[v_j].lb();
                 double const i1_ub = b1[v_j].ub();
-                picosat_add(m_psat, m_store.add(v_j, i1_lb));
+                // (v_j <= i1.lb) \/ !(v_j <= i1.ub)
+                picosat_add(m_psat,  m_store.add(v_j, i1_lb));
                 picosat_add(m_psat, -m_store.add(v_j, i1_ub));
             }
             double const i2_ub = b2[v_i].ub();
@@ -142,13 +150,13 @@ namespace dreal {
             // i1_lb   i2_lb         i2_ub       i1_ub
             //
             // (v <= i1_lb) => (v <= i2_lb)
-            if (i1_lb != i2_lb) {
+            if (i1_lb < i2_lb) {
                 picosat_add(m_psat, -m_store.add(v, i1_lb));
                 picosat_add(m_psat,  m_store.add(v, i2_lb));
                 picosat_add(m_psat,  0);
             }
             // (v <= i2_ub) => (v <= i1_ub)
-            if (i2_ub != i1_ub) {
+            if (i2_ub < i1_ub) {
                 picosat_add(m_psat, -m_store.add(v, i2_ub));
                 picosat_add(m_psat,  m_store.add(v, i1_ub));
                 picosat_add(m_psat,  0);
@@ -179,7 +187,8 @@ namespace dreal {
             }
         }
         picosat_add(m_psat, 0);
-        DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - !B => " << l1 << " " << l2;
+        DREAL_LOG_FATAL << "PICOSAT WRAPPER: ADD - !B => "
+                        << l1 << " " << l2 << " " << l3 << " " << l4;
     }
 
     // Add B => (B[v].lb <= v <= m) xor (m <= v <= B[v].ub)
@@ -189,9 +198,6 @@ namespace dreal {
         double const ub = b[v].ub();
         // 1. In CNF Form
         //  1.1. B => (B[v].lb <= v <= m) \/ (m <= v <= B[v].ub)
-        //  1.2. B => !(B[v].lb <= v <= m) /\ (m <= v <= B[v].ub)
-
-        //  1.1 part:
         //   B => (l <= v) \/ (m <= v) --> B => (l <= v) --> B <= !(v <= l)
         add_imply(b, -m_store.add(v, lb), -m_store.add(v, m));
         //   B => (l <= v) \/ (v <= u) --> B => !(v <= l) \/ (v <= u)
@@ -201,18 +207,18 @@ namespace dreal {
         //   B => (v <= m) \/ (v <= u) --> B => (v <= m) \/ (v <= u) --> B => (v <= u)
         add_imply(b,  m_store.add(v, m),  m_store.add(v, ub));
 
-        //  1.2 part:
+        //  1.2. B => !(B[v].lb <= v <= m) /\ (m <= v <= B[v].ub)
         //   B => !(l <= v /\ v <= m) \/ !(m <= v /\ v <= u)
         //   B => !(l <= v) \/ !(v <= m) \/ !(m <= v) /\ !(v <= u)
         //   B =>  (v <= l) \/ !(v <= m) \/  (v <= m) /\ !(v <= u)
         add_imply(b, m_store.add(v, lb), -m_store.add(v, m), m_store.add(v, m), -m_store.add(v, ub));
 
         // 2. Need to provide ordering among (v <= lb), (v <= m), (v <= ub)
-        // (v <= lb) => (v <= m) --> !(v <= lb) \/ (v <= m)
+        //  (v <= lb) => (v <= m) --> !(v <= lb) \/ (v <= m)
         picosat_add(m_psat, -m_store.add(v, lb));
         picosat_add(m_psat, m_store.add(v, m));
         picosat_add(m_psat, 0);
-        // (v <= m) => (v <= ub) --> !(v <= m) \/ (v <= ub)
+        //  (v <= m) => (v <= ub) --> !(v <= m) \/ (v <= ub)
         picosat_add(m_psat, -m_store.add(v, m));
         picosat_add(m_psat, m_store.add(v, ub));
         picosat_add(m_psat, 0);
