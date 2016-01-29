@@ -198,16 +198,16 @@ namespace dreal {
         double const ub = b[v].ub();
         // 1. In CNF Form
         //  1.1. B => (B[v].lb <= v <= m) \/ (m <= v <= B[v].ub)
-        //   B => (l <= v) \/ (m <= v) --> B => (l <= v) --> B <= !(v <= l)
+        //   B => (l <= v) \/ (m <= v) --> B => !(v <= l) \/ !(v <= m)
         add_imply(b, -m_store.add(v, lb), -m_store.add(v, m));
         //   B => (l <= v) \/ (v <= u) --> B => !(v <= l) \/ (v <= u)
-        add_imply(b, -m_store.add(v, lb), m_store.add(v, ub));
-        //   B => (v <= m) \/ (m <= v) --> B => True
-        add_imply(b,  m_store.add(v, m), -m_store.add(v, m));
-        //   B => (v <= m) \/ (v <= u) --> B => (v <= m) \/ (v <= u) --> B => (v <= u)
-        add_imply(b,  m_store.add(v, m),  m_store.add(v, ub));
+        add_imply(b, -m_store.add(v, lb),  m_store.add(v, ub));
+        //   B => (v <= m) \/ (m <= v) --> B => (v <= m) \/ !(v <= m)
+        add_imply(b,  m_store.add(v, m),  -m_store.add(v, m));
+        //   B => (v <= m) \/ (v <= u) --> B => (v <= m) \/ (v <= u)
+        add_imply(b,  m_store.add(v, m),   m_store.add(v, ub));
 
-        //  1.2. B => !(B[v].lb <= v <= m) /\ (m <= v <= B[v].ub)
+        //  1.2. B => !(B[v].lb <= v <= m) /\ !(m <= v <= B[v].ub)
         //   B => !(l <= v /\ v <= m) \/ !(m <= v /\ v <= u)
         //   B => !(l <= v) \/ !(v <= m) \/ !(m <= v) /\ !(v <= u)
         //   B =>  (v <= l) \/ !(v <= m) \/  (v <= m) /\ !(v <= u)
