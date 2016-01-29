@@ -77,7 +77,10 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                 auto const this_used_constraints = ctc.used_constraints();
                 used_constraints.insert(this_used_constraints.begin(), this_used_constraints.end());
             } catch (contractor_exception & e) { /* Do nothing */ }
-            if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
+            if (config.nra_use_stat) {
+                config.nra_stat.increase_prune();
+                DREAL_LOG_FATAL << "#Pruning : " << config.nra_stat.m_num_of_prune;
+            }
             // Collect Used Variables
             unordered_set<Enode *> used_vars;
             for (auto const & used_ctr : ctc.used_constraints()) {

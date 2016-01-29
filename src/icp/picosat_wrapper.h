@@ -121,9 +121,6 @@ public:
     // Add: lb <= v <= ub
     void add_intv(double const lb, Enode* v, double const ub);
 
-    // // Add: !(lb <= v /\ v <= ub)
-    // void add_neg_intv(double const lb, Enode* v, double const ub);
-
     void add_box(box const & b);
 
     // Add blocking clause ¬B, but generalize it using used_vars
