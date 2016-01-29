@@ -22,8 +22,6 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include <limits>
 #include <map>
 #include <random>
-#include <tuple>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "icp/sat_icp.h"
@@ -36,10 +34,7 @@ using std::cout;
 using std::endl;
 using std::get;
 using std::map;
-using std::make_tuple;
 using std::random_device;
-using std::tuple;
-using std::unordered_map;
 using std::unordered_set;
 using std::vector;
 using std::numeric_limits;

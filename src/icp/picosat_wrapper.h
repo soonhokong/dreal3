@@ -45,18 +45,21 @@ inline void hash_combine(std::size_t& seed, const T& v) {
 
 namespace std {
 template<>
-struct hash<std::tuple<Enode*, double>> {
-    size_t operator () (const std::tuple<Enode*, double> & v) const {
+struct hash<std::tuple<Enode*, double, bool>> {
+    size_t operator () (const std::tuple<Enode*, double, bool> & v) const {
         std::size_t s = 23;
         dreal::hash_combine<Enode*>(s, std::get<0>(v));
         dreal::hash_combine<double>(s, std::get<1>(v));
+        dreal::hash_combine<bool>(s, std::get<2>(v));
         return s;
     }
 };
 template<>
-struct equal_to<std::tuple<Enode*, double>> {
-    bool operator() (const std::tuple<Enode*, double> & v1, const std::tuple<Enode*, double> & v2) const {
-        return std::get<0>(v1) == std::get<0>(v2) && std::get<1>(v1) == std::get<1>(v2);
+struct equal_to<std::tuple<Enode*, double, bool>> {
+    bool operator() (const std::tuple<Enode*, double, bool> & v1, const std::tuple<Enode*, double, bool> & v2) const {
+        return std::get<0>(v1) == std::get<0>(v2)
+            && std::get<1>(v1) == std::get<1>(v2)
+            && std::get<2>(v1) == std::get<2>(v2);
     }
 };
 }  // namespace std
@@ -65,12 +68,12 @@ namespace dreal {
 class pred_abs {
 private:
     int m_num_vars = 0;
-    std::unordered_map<int, std::tuple<Enode*, double>> m_con_map;
-    std::unordered_map<std::tuple<Enode*, double>, int> m_abs_map;
+    std::unordered_map<int, std::tuple<Enode*, double, bool>> m_con_map;
+    std::unordered_map<std::tuple<Enode*, double, bool>, int> m_abs_map;
 
 public:
-    int add(Enode* v, double const bound) {
-        auto p = std::make_tuple(v, bound);
+    int add(Enode* v, double const bound, bool const le) {
+        auto p = std::make_tuple(v, bound, le);
         auto const it = m_abs_map.find(p);
         if (it == m_abs_map.end()) {
             ++m_num_vars;
@@ -84,18 +87,20 @@ public:
     int get_num_vars() const {
         return m_num_vars;
     }
-    int lookup(Enode * v, double const bound) const {
-        return m_abs_map.at(std::make_tuple(v, bound));
+    int lookup(Enode * v, double const bound, bool const le) const {
+        return m_abs_map.at(std::make_tuple(v, bound, le));
     }
 
-    std::tuple<Enode*, double> lookup(int const n) const {
+    std::tuple<Enode*, double, bool> lookup(int const n) const {
         return m_con_map.at(n);
     }
     void debug_print() const {
         for (int i = 1; i <= m_num_vars; ++i) {
             auto t = lookup(i);
             DREAL_LOG_FATAL << "B" << i << "\t <---> \t"
-                           << std::get<0>(t) << " <= " << std::get<1>(t);
+                            << std::get<0>(t)
+                            << (std::get<2>(t) ? " <= " : " >= ")
+                            << std::get<1>(t);
         }
     }
 };
@@ -117,6 +122,12 @@ public:
 
     // Add: bound <= v
     void add_le(double const bound, Enode* v);
+
+    // Add: v >= bound
+    void add_ge(Enode * v, double const bound);
+
+    // Add: bound >= v
+    void add_ge(double const bound, Enode* v);
 
     // Add: lb <= v <= ub
     void add_intv(double const lb, Enode* v, double const ub);

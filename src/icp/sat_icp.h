@@ -24,7 +24,6 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include "util/stat.h"
 #include "contractor/contractor.h"
 #include "opensmt/smtsolvers/SMTConfig.h"
-#include "picosat/picosat.h"
 
 namespace dreal {
 
