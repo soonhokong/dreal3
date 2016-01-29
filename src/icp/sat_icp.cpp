@@ -55,17 +55,21 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
     // Step 2. Main Part
     while (true) {
         DREAL_LOG_FATAL << "\n\n";
-        pw.debug_print();
+        // pw.debug_print();
         int ret = pw.check_sat();
         if (ret == PICOSAT_SATISFIABLE) {
-            DREAL_LOG_FATAL << "SAT solver found a satisfying Boolean assignment";
+            DREAL_LOG_INFO << "SAT solver found a satisfying Boolean assignment";
             // Case 1: SAT solver found a satisfying Boolean assignment
             // 1.1. Concretize the satisfying Boolean assignment into a conjunction of constraints
             // Check each Boolean Variable and if partially assigned to be true, shrink the interval
-            // DREAL_LOG_FATAL << "store.get_num_vars() = " << store.get_num_vars();
+            // DREAL_LOG_INFO << "store.get_num_vars() = " << store.get_num_vars();
             b = pw.reduce_using_model(initial_box);
             DREAL_LOG_FATAL << "Current Box = " << "\n"
                             << b;
+            if (b.is_empty()) {
+                DREAL_LOG_FATAL << "SOMETHING IS WRONG";
+                abort();
+            }
             // 1.2. Apply pruning operators with box B until it reaches a fixed point B'
             box old_b(b);
             try {
@@ -80,13 +84,22 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                 auto const this_used_vars = used_ctr->get_vars();
                 used_vars.insert(this_used_vars.begin(), this_used_vars.end());
             }
-            DREAL_LOG_FATAL << "|USED VARS| = " << used_vars.size();
+            DREAL_LOG_INFO << "|USED VARS| = " << used_vars.size();
 
             if (b.is_empty()) {
                 DREAL_LOG_FATAL << "After Pruning, it became an empty set.";
                 // Case i: Pruning returns an empty box.
                 // Add Blocking Clause: !old_b
+
+                // DREAL_LOG_INFO << "BEFORE ADD BLOCKING CLAUSE";
+                // pw.debug_print();
+
                 pw.add_generalized_blocking_box(old_b, used_vars);
+
+                // DREAL_LOG_INFO << "AFTER ADD BLOCKING CLAUSE";
+                // pw.debug_print();
+
+
             } else {
                 DREAL_LOG_FATAL << "After Pruning, it became a non-empty set.\n" << b;
                 // Case ii: Pruning returns a non-empty box b
