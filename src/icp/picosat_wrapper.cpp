@@ -48,6 +48,25 @@ namespace dreal {
         picosat_add(m_psat, -m_store.add(v, u, false));
         picosat_add(m_psat,  m_store.add(v, l, false));
         picosat_add(m_psat,  0);
+
+        // Disjoint Requirement: (v <= lb) => !(v >= ub) --> !(v <= lb) \/ !(v >= ub)
+        picosat_add(m_psat, -m_store.add(v, l, true));
+        picosat_add(m_psat, -m_store.add(v, u, false));
+        picosat_add(m_psat,  0);
+
+        // Disjoint Requirement: (v >= ub) => !(v <= lb) --> !(v >= ub) \/ !(v <= lb)
+        picosat_add(m_psat, -m_store.add(v, u, false));
+        picosat_add(m_psat, -m_store.add(v, l, true));
+        picosat_add(m_psat,  0);
+
+        picosat_add(m_psat, m_store.add(v, l, false));
+        picosat_add(m_psat, m_store.add(v, l, true));
+        picosat_add(m_psat,  0);
+
+        picosat_add(m_psat, m_store.add(v, u, false));
+        picosat_add(m_psat, m_store.add(v, u, true));
+        picosat_add(m_psat,  0);
+
     }
 
     // Add: v <= bound
@@ -239,14 +258,12 @@ namespace dreal {
         //   B => !(l <= v) \/ !(v <= m) \/ !(m <= v) /\ !(v <= u)
         //   B => !(v >= l) \/ !(v <= m) \/ !(v >= m) /\ !(v <= u)
         add_imply(b, -m_store.add(v, lb, false)
-                  , -m_store.add(v, m, true)
-                  , -m_store.add(v, m, false)
-                  , -m_store.add(v, ub, true));
+                   , -m_store.add(v, m,  true)
+                   , -m_store.add(v, m,  false)
+                   , -m_store.add(v, ub, true));
 
-        // 2. Need to provide ordering among (v <= lb), (v <= m), (v <= ub)
-        //  (v <= lb) => (v <= m) --> !(v <= lb) \/ (v <= m)
+        // 2. Need to provide ordering among lb, m, and ub.
         add_ordering(v, lb, m);
-        //  (v <= m) => (v <= ub) --> !(v <= m) \/ (v <= ub)
         add_ordering(v, m, ub);
 
         // Debug Print
