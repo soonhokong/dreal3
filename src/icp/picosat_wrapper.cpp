@@ -59,14 +59,15 @@ namespace dreal {
         picosat_add(m_psat, -m_store.add(v, l, true));
         picosat_add(m_psat,  0);
 
+        // (v >= l) \/ (v <= l)
         picosat_add(m_psat, m_store.add(v, l, false));
         picosat_add(m_psat, m_store.add(v, l, true));
         picosat_add(m_psat,  0);
 
+        // (v >= u) \/ (v <= u)
         picosat_add(m_psat, m_store.add(v, u, false));
         picosat_add(m_psat, m_store.add(v, u, true));
         picosat_add(m_psat,  0);
-
     }
 
     // Add: v <= bound
@@ -118,8 +119,9 @@ namespace dreal {
         for (Enode * v : used_vars) {
             double const lb = b[v].lb();
             double const ub = b[v].ub();
-            // !(lb <= v <= ub) --> !(lb <= v) \/ !(v <= ub)
-            //                  --> !(v >= lb)  \/ !(v <= ub)
+            // !(lb <= v <= ub) --> !(lb <= v  /\   v <= ub)
+            //                  --> !(lb <= v) \/ !(v <= ub)
+            //                  --> !(v >= lb) \/ !(v <= ub)
             picosat_add(m_psat, -m_store.add(v, lb, false));
             picosat_add(m_psat, -m_store.add(v, ub, true));
         }
@@ -160,8 +162,8 @@ namespace dreal {
                 double const i1_lb = b1[v_j].lb();
                 double const i1_ub = b1[v_j].ub();
                 //     !((i1.lb <= v_j) /\  (v_j <= i1.ub))
-                // --> !(i1.lb <= v_j)  \/ !(v_j <= i1.ub)
-                // --> !(v_j >= i1.lb)  \/ !(v_j <= i1.ub)
+                // -->  !(i1.lb <= v_j) \/ !(v_j <= i1.ub)
+                // -->  !(v_j >= i1.lb) \/ !(v_j <= i1.ub)
                 picosat_add(m_psat, -m_store.add(v_j, i1_lb, false));
                 picosat_add(m_psat, -m_store.add(v_j, i1_ub, true));
             }
@@ -175,8 +177,8 @@ namespace dreal {
                 double const i1_lb = b1[v_j].lb();
                 double const i1_ub = b1[v_j].ub();
                 //     !((i1.lb <= v_j) /\  (v_j <= i1.ub))
-                // --> !(i1.lb <= v_j)  \/ !(v_j <= i1.ub)
-                // --> !(v_j >= i1.lb)  \/ !(v_j <= i1.ub)
+                // -->  !(i1.lb <= v_j) \/ !(v_j <= i1.ub)
+                // -->  !(v_j >= i1.lb) \/ !(v_j <= i1.ub)
                 picosat_add(m_psat, -m_store.add(v_j, i1_lb, false));
                 picosat_add(m_psat, -m_store.add(v_j, i1_ub, true));
             }
@@ -234,7 +236,7 @@ namespace dreal {
         //                 << l1 << " " << l2 << " " << l3 << " " << l4;
     }
 
-    // Add B => (B[v].lb <= v <= m) xor (m <= v <= B[v].ub)
+    // Add B => (B[v].lb <= v < m) xor (m <= v <= B[v].ub)
     void picosat_wrapper::add_branching(box const & b, Enode * v, double const m) {
         // TODO(soonhok): only do this if v m is not in the store
         double const lb = b[v].lb();
@@ -243,33 +245,35 @@ namespace dreal {
                         << v << "[" << lb << ", " << m << ", " << ub << "]\n"
                         << b;
         // 1. In CNF Form
-        //  1.1. B => (B[v].lb <= v <= m) \/ (m <= v <= B[v].ub)
+        //  1.1. B => (B[v].lb <= v < m) \/ (m <= v <= B[v].ub)
         //   B => (l <= v) \/ (m <= v) --> B => (v >= l) \/ (v >= m)
-        add_imply(b, m_store.add(v, lb, false), m_store.add(v, m, false));
+        add_imply(b, m_store.add(v, lb, false), m_store.add(v, m, true));
         //   B => (l <= v) \/ (v <= u) --> B => (v >= l) \/ (v <= u)
         add_imply(b, m_store.add(v, lb, false), m_store.add(v, ub, true));
-        //   B => (v <= m) \/ (m <= v) --> B => (v <= m) \/ (v >= m)
-        add_imply(b, m_store.add(v, m, true),  m_store.add(v, m, false));
-        //   B => (v <= m) \/ (v <= u) --> B => (v <= m) \/ (v <= u)
-        add_imply(b, m_store.add(v, m, true),  m_store.add(v, ub, true));
+        //   B => (v < m) \/ (m <= v) --> B => (v < m) \/ (v >= m)
+        //                            --> B => !(v >= m) \/ (v >= m)
+        // add_imply(b, -m_store.add(v, m, false), m_store.add(v, m, false));
+        //   B => (v < m) \/ (v <= u) --> B => !(v >= m) \/ (v <= u)
+        add_imply(b, -m_store.add(v, m, false),  m_store.add(v, ub, true));
 
-        //  1.2. B => !(B[v].lb <= v <= m) /\ !(m <= v <= B[v].ub)
-        //   B => !(l <= v /\ v <= m) \/ !(m <= v /\ v <= u)
-        //   B => !(l <= v) \/ !(v <= m) \/ !(m <= v) /\ !(v <= u)
-        //   B => !(v >= l) \/ !(v <= m) \/ !(v >= m) /\ !(v <= u)
-        add_imply(b, -m_store.add(v, lb, false)
-                   , -m_store.add(v, m,  true)
-                   , -m_store.add(v, m,  false)
-                   , -m_store.add(v, ub, true));
+        //  1.2. B => !(B[v].lb <= v < m) /\ !(m <= v <= B[v].ub)
+        //   B => !(l <= v /\ v < m) \/ !(m <= v /\ v <= u)
+        //   B => !(l <= v) \/ !(v < m) \/ !(m <= v) /\ !(v <= u)
+        //   B => !(v >= l) \/ !(v < m) \/ !(v >= m) /\ !(v <= u)
+        //   B => !(v >= l) \/  (v >= m) \/ !(v >= m) /\ !(v <= u)
+        // add_imply(b, -m_store.add(v, lb, false)
+        //            ,  m_store.add(v, m,  false)
+        //            , -m_store.add(v, m,  false)
+        //            , -m_store.add(v, ub, true));
 
         // 2. Need to provide ordering among lb, m, and ub.
         add_ordering(v, lb, m);
         add_ordering(v, m, ub);
 
         // Debug Print
-        DREAL_LOG_INFO << "Branching on: " << v << "\t"
-                       << "[" << lb << ", " << m  << "], "
-                       << "[" << m  << ", " << ub << "]";
+        DREAL_LOG_WARNING << "Branching on: " << v << "\t"
+                        << "[" << lb << ", " << m  << "], "
+                        << "[" << m  << ", " << ub << "]";
     }
 
     int picosat_wrapper::check_sat() {
@@ -281,53 +285,54 @@ namespace dreal {
         // TODO(soonhok): this can be a bottleneck. Consider optimization.
         for (int i = 1; i <= m_store.get_num_vars(); i++) {
             int const r = picosat_deref_partial(m_psat, i);
-            if (r == 0) { continue;  /* UNKNOWN */ }
             // pred := v <= bound
             tuple<Enode*, double, bool> pred = m_store.lookup(i);
             Enode * v = get<0>(pred);
             double const bound = get<1>(pred);
             bool const le = get<2>(pred);
 
-            DREAL_LOG_FATAL << (r == 1 ? "" : "! ")
+            DREAL_LOG_WARNING << (r == 1 ? "+" : (r == 0 ? "0" : "! "))
                             << v
                             << (le ? " <= " : " >= ")
                             << bound;
 
+            if (r == 0) { continue;  /* UNKNOWN */ }
+
             if (r == 1 && le) {
                 // (v <= bound)
-                DREAL_LOG_FATAL << "b[" << v << "] : "
+                DREAL_LOG_WARNING << "b[" << v << "] : "
                                 << b[v] << " /\\ " << ibex::Interval(b[v].lb(), bound)
                                 << " [" << b[v].lb() << ", " << bound << "]";
                 b[v] &= ibex::Interval(b[v].lb(), bound);
-                DREAL_LOG_FATAL << " = " << b[v];
+                DREAL_LOG_WARNING << " = " << b[v];
             } else if (r == 1 && !le) {
                 // (v >= bound)
-                DREAL_LOG_FATAL << "b[" << v << "] : "
+                DREAL_LOG_WARNING << "b[" << v << "] : "
                                 << b[v] << " /\\ " << ibex::Interval(bound, b[v].ub())
                                 << " [" << bound << ", " << b[v].ub() << "]";
                 b[v] &= ibex::Interval(bound, b[v].ub());
-                DREAL_LOG_FATAL << " = " << b[v];
+                DREAL_LOG_WARNING << " = " << b[v];
             } else if (r == -1 && le) {
                 // !(v <= bound) --> (v > bound)
                 if (bound == b[v].ub()) {
                     b[v].set_empty();
                 } else {
-                    DREAL_LOG_FATAL << "b[" << v << "] : "
+                    DREAL_LOG_WARNING << "b[" << v << "] : "
                                     << b[v] << " /\\ " << ibex::Interval(bound, b[v].ub())
                                     << " (" << bound << ", " << b[v].ub() << "]";
                     b[v] &= ibex::Interval(bound, b[v].ub());
-                    DREAL_LOG_FATAL << " = " << b[v];
+                    DREAL_LOG_WARNING << " = " << b[v];
                 }
             } else if (r == -1 && !le) {
                 // !(v >= bound) --> (v < bound)
                 if (bound == b[v].lb()) {
                     b[v].set_empty();
                 } else {
-                    DREAL_LOG_FATAL << "b[" << v << "] : "
+                    DREAL_LOG_WARNING << "b[" << v << "] : "
                                     << b[v] << " /\\ " << ibex::Interval(b[v].lb(), bound)
                                     << " [" << b[v].lb() << ", " << bound << ")";
                     b[v] &= ibex::Interval(b[v].lb(), bound);
-                    DREAL_LOG_FATAL << " = " << b[v];
+                    DREAL_LOG_WARNING << " = " << b[v];
                 }
             }
             if (b[v].is_empty()) {
