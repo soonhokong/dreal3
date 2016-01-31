@@ -79,10 +79,6 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
                 b = pw.reduce_using_model(initial_box);
                 DREAL_LOG_WARNING << "Current Box = " << "\n"
                                   << b;
-                if (b.is_empty()) {
-                    DREAL_LOG_WARNING << "SOMETHING IS WRONG";
-                    abort();
-                }
                 // 1.2. Apply pruning operators with box B until it reaches a fixed point B'
                 old_b = b;
                 try {
@@ -94,6 +90,7 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
                     config.nra_stat.increase_prune();
                     DREAL_LOG_WARNING << "#Pruning : " << config.nra_stat.m_num_of_prune;
                 }
+
                 // Collect Used Variables
                 unordered_set<Enode *> used_vars;
                 for (auto const & used_ctr : nl_ctc.used_constraints()) {
@@ -106,27 +103,12 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
                     DREAL_LOG_WARNING << "After Pruning, it became an empty set.";
                     // Case i: Pruning returns an empty box.
                     // Add Blocking Clause: !old_b
-
-                    // DREAL_LOG_WARNING << "BEFORE ADD BLOCKING CLAUSE";
-                    // pw.debug_print();
-
                     pw.add_generalized_blocking_box(old_b, used_vars);
-
-                    // DREAL_LOG_WARNING << "AFTER ADD BLOCKING CLAUSE";
-                    // pw.debug_print();
-
-
+                    break;
                 } else {
                     DREAL_LOG_WARNING << "After Pruning, it became a non-empty set.\n" << b;
-                    // Case ii: Pruning returns a non-empty box b
-                    if (b.max_diam() < config.nra_precision) {
-                        DREAL_LOG_WARNING << "Box is small enough to stop.";
-                        // Box is small enough to stop => delta-SAT
-                        stop = true;
-                        break;
-                    } else {
-                        DREAL_LOG_WARNING << "Box is big: width = " << b.max_diam();
-                        // Learn old_b => B
+                    // Case ii: Pruning returns a non-empty box b, learn "old_b => b"
+                    if (old_b != b) {
                         pw.add_generalized_blocking_box(old_b, b, used_vars);
                     }
                 }
@@ -138,20 +120,25 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
                 break;
             } else {
                 assert(ret == PICOSAT_UNKNOWN);
-                DREAL_LOG_WARNING << "SAT Solver failed.";
+                DREAL_LOG_WARNING << "SAT Solver failed."; abort();
             }
         }
         // Box is big, and needs to be branched. We also need to learn a clause from this pruning
         if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
-
-        if (!stop) {
-            // Pick a branching variable and branching point
-            // TODO(soonhok): b.bisect is an overkill here
-            // since it returns two boxes which are not used
-            auto const bisect_result = b.bisect(config.nra_precision);
-            Enode * br_var = b.get_vars()[get<0>(bisect_result)];
-            double const br_point = b[br_var].mid();
-            pw.add_branching(b, br_var, br_point);
+        if (!b.is_empty()) {
+            if (b.max_diam() < config.nra_precision) {
+                DREAL_LOG_WARNING << "Box is small enough to stop.";
+                // Box is small enough to stop => delta-SAT
+                stop = true;
+            } else {
+                // Pick a branching variable and branching point
+                // TODO(soonhok): b.bisect is an overkill here
+                // since it returns two boxes which are not used
+                auto const bisect_result = b.bisect(config.nra_precision);
+                Enode * br_var = b.get_vars()[get<0>(bisect_result)];
+                double const br_point = b[br_var].mid();
+                pw.add_branching(b, br_var, br_point);
+            }
         }
     }
     // TODO(soonhok): the callee of this function, nra_solver::check,
