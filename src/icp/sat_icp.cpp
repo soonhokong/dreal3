@@ -62,7 +62,9 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
 
     // Step 2. Main Part
     bool stop = false;
+    box old_b(b);
     while (!stop) {
+        // Pruning
         for (auto & nl_ctc : nl_ctcs) {
             DREAL_LOG_WARNING << "\n\n";
             // pw.debug_print();
@@ -82,7 +84,7 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
                     abort();
                 }
                 // 1.2. Apply pruning operators with box B until it reaches a fixed point B'
-                box old_b(b);
+                old_b = b;
                 try {
                     nl_ctc.prune(b, config);
                     auto const this_used_constraints = nl_ctc.used_constraints();
@@ -124,16 +126,7 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
                         break;
                     } else {
                         DREAL_LOG_WARNING << "Box is big: width = " << b.max_diam();
-                        // Box is big, and needs to be branched. We also need to learn a clause from this pruning
-                        if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
-
-                        // Pick a branching variable and branching point
-                        // TODO(soonhok): b.bisect is an overkill here
-                        // since it returns two boxes which are not used
-                        auto const bisect_result = b.bisect(config.nra_precision);
-                        Enode * br_var = b.get_vars()[get<0>(bisect_result)];
-                        double const br_point = b[br_var].mid();
-                        pw.add_branching(b, br_var, br_point);
+                        // Learn old_b => B
                         pw.add_generalized_blocking_box(old_b, b, used_vars);
                     }
                 }
@@ -148,8 +141,19 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
                 DREAL_LOG_WARNING << "SAT Solver failed.";
             }
         }
-    }
+        // Box is big, and needs to be branched. We also need to learn a clause from this pruning
+        if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
 
+        if (!stop) {
+            // Pick a branching variable and branching point
+            // TODO(soonhok): b.bisect is an overkill here
+            // since it returns two boxes which are not used
+            auto const bisect_result = b.bisect(config.nra_precision);
+            Enode * br_var = b.get_vars()[get<0>(bisect_result)];
+            double const br_point = b[br_var].mid();
+            pw.add_branching(b, br_var, br_point);
+        }
+    }
     // TODO(soonhok): the callee of this function, nra_solver::check,
     // passes ctc to this function and expect this argument is
     // properly modified (i.e. used constriants, input, and
