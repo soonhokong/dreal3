@@ -115,7 +115,7 @@ public:
     ~picosat_wrapper();
 
     // Given a variable `v` and two constants `l` and `u` where l < u holds.
-    void add_ordering(Enode *v, double const l, double const u);
+    void add_ordering(box const & b, Enode *v, double const l, double const u);
 
     // Add: v <= bound
     void add_le(Enode * v, double const bound);
@@ -129,8 +129,8 @@ public:
     // Add: bound >= v
     void add_ge(double const bound, Enode* v);
 
-    // Add: lb <= v <= ub
-    void add_intv(double const lb, Enode* v, double const ub);
+    // // Add: lb <= v <= ub
+    // void add_intv(double const lb, Enode* v, double const ub);
 
     void add_box(box const & b);
 

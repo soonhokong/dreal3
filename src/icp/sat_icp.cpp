@@ -49,20 +49,21 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
     box const initial_box(b);
     // Step 2. Main Part
     while (true) {
-        DREAL_LOG_FATAL << "\n\n";
+        DREAL_LOG_WARNING << "\n\n";
         // pw.debug_print();
+        DREAL_LOG_WARNING << "\n";
         int ret = pw.check_sat();
         if (ret == PICOSAT_SATISFIABLE) {
-            DREAL_LOG_INFO << "SAT solver found a satisfying Boolean assignment";
+            DREAL_LOG_WARNING << "SAT solver found a satisfying Boolean assignment";
             // Case 1: SAT solver found a satisfying Boolean assignment
             // 1.1. Concretize the satisfying Boolean assignment into a conjunction of constraints
             // Check each Boolean Variable and if partially assigned to be true, shrink the interval
-            // DREAL_LOG_INFO << "store.get_num_vars() = " << store.get_num_vars();
+            // DREAL_LOG_WARNING << "store.get_num_vars() = " << store.get_num_vars();
             b = pw.reduce_using_model(initial_box);
-            DREAL_LOG_FATAL << "Current Box = " << "\n"
+            DREAL_LOG_WARNING << "Current Box = " << "\n"
                             << b;
             if (b.is_empty()) {
-                DREAL_LOG_FATAL << "SOMETHING IS WRONG";
+                DREAL_LOG_WARNING << "SOMETHING IS WRONG";
                 abort();
             }
             // 1.2. Apply pruning operators with box B until it reaches a fixed point B'
@@ -74,7 +75,7 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             } catch (contractor_exception & e) { /* Do nothing */ }
             if (config.nra_use_stat) {
                 config.nra_stat.increase_prune();
-                DREAL_LOG_FATAL << "#Pruning : " << config.nra_stat.m_num_of_prune;
+                DREAL_LOG_WARNING << "#Pruning : " << config.nra_stat.m_num_of_prune;
             }
             // Collect Used Variables
             unordered_set<Enode *> used_vars;
@@ -82,31 +83,31 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                 auto const this_used_vars = used_ctr->get_vars();
                 used_vars.insert(this_used_vars.begin(), this_used_vars.end());
             }
-            DREAL_LOG_INFO << "|USED VARS| = " << used_vars.size();
+            DREAL_LOG_WARNING << "|USED VARS| = " << used_vars.size();
 
             if (b.is_empty()) {
-                DREAL_LOG_FATAL << "After Pruning, it became an empty set.";
+                DREAL_LOG_WARNING << "After Pruning, it became an empty set.";
                 // Case i: Pruning returns an empty box.
                 // Add Blocking Clause: !old_b
 
-                // DREAL_LOG_INFO << "BEFORE ADD BLOCKING CLAUSE";
+                // DREAL_LOG_WARNING << "BEFORE ADD BLOCKING CLAUSE";
                 // pw.debug_print();
 
                 pw.add_generalized_blocking_box(old_b, used_vars);
 
-                // DREAL_LOG_INFO << "AFTER ADD BLOCKING CLAUSE";
+                // DREAL_LOG_WARNING << "AFTER ADD BLOCKING CLAUSE";
                 // pw.debug_print();
 
 
             } else {
-                DREAL_LOG_FATAL << "After Pruning, it became a non-empty set.\n" << b;
+                DREAL_LOG_WARNING << "After Pruning, it became a non-empty set.\n" << b;
                 // Case ii: Pruning returns a non-empty box b
                 if (b.max_diam() < config.nra_precision) {
-                    DREAL_LOG_FATAL << "Box is small enough to stop.";
+                    DREAL_LOG_WARNING << "Box is small enough to stop.";
                     // Box is small enough to stop => delta-SAT
                     break;
                 } else {
-                    DREAL_LOG_FATAL << "Box is big: width = " << b.max_diam();
+                    DREAL_LOG_WARNING << "Box is big: width = " << b.max_diam();
                     // Box is big, and needs to be branched. We also need to learn a clause from this pruning
                     if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
 
@@ -121,13 +122,13 @@ box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
                 }
             }
         } else if (ret == PICOSAT_UNSATISFIABLE) {
-            DREAL_LOG_FATAL << "SAT solver failed to find a satisfying Boolean assignment";
+            DREAL_LOG_WARNING << "SAT solver failed to find a satisfying Boolean assignment";
             // Case 2: SAT solver concludes UNSAT. Return UNSAT.
             b.set_empty();
             break;
         } else {
             assert(ret == PICOSAT_UNKNOWN);
-            DREAL_LOG_FATAL << "SAT Solver failed.";
+            DREAL_LOG_WARNING << "SAT Solver failed.";
         }
     }
     ctc.set_used_constraints(used_constraints);
