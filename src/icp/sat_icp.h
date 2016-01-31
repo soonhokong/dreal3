@@ -21,6 +21,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 
 #include <random>
 #include "util/box.h"
+#include "util/scoped_vec.h"
 #include "util/stat.h"
 #include "contractor/contractor.h"
 #include "opensmt/smtsolvers/SMTConfig.h"
@@ -29,7 +30,7 @@ namespace dreal {
 
 class sat_icp {
 public:
-    static box solve(box b, contractor & ctc, SMTConfig & config);
+    static box solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, contractor & ctc, SMTConfig & config);
 };
 
 }  // namespace dreal

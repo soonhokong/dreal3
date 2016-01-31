@@ -431,7 +431,7 @@ bool nra_solver::check(bool complete) {
     if (complete) {
         // Complete Check ==> Run ICP
         if (config.nra_sat_icp) {
-            m_box = sat_icp::solve(m_box, m_ctc, config);
+            m_box = sat_icp::solve(m_stack, m_box, m_ctc, config);
         } else if (config.nra_ncbt) {
             m_box = ncbt_icp::solve(m_box, m_ctc, config);
         } else {
