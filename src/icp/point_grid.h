@@ -18,7 +18,7 @@
 
 namespace dreal {
 
-class PtMatrix { //Point Matrix
+class Grid { //Point Matrix
 private:
 	//top_lit keeps the index of the last literal
 	unsigned top_lit;
@@ -40,8 +40,8 @@ private:
 	std::vector<std::vector<int> *> lu_clauses; //lower and upper bounds should be consistent
 
 public:
-	PtMatrix(box const &);
-	~PtMatrix();
+	Grid(box const &);
+	~Grid();
 	void add_box(box const &);
 	void add_point(Enode * v, double const p);
 };

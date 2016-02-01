@@ -2,7 +2,7 @@
 #include <unordered_map>
 #include <tuple>
 #include "icp/picosat_wrapper.h"
-#include "icp/point_matrix.h"
+#include "icp/point_grid.h"
 
 using std::unordered_set;
 using std::tuple;
@@ -15,7 +15,7 @@ using std::make_pair;
 
 namespace dreal {
 
-PtMatrix::PtMatrix(box const & b) {
+Grid::Grid(box const & b) {
 	top_lit = 0;
 	auto const & vars = b.get_vars();
         for (unsigned i = 0; i < b.size(); ++i) {
@@ -33,7 +33,7 @@ PtMatrix::PtMatrix(box const & b) {
         }
 }
 
-PtMatrix::~PtMatrix() {
+Grid::~Grid() {
 	for (auto const & it : point_rows) delete it.second;
 	for (auto const & it : lb_lits) delete it.second;
 	for (auto const & it : ub_lits) delete it.second;
@@ -41,7 +41,7 @@ PtMatrix::~PtMatrix() {
 	for (auto const & it : lu_clauses) delete it;
 }
 
-void PtMatrix::add_box(box const & b) {
+void Grid::add_box(box const & b) {
 	//add the endpoints on each dimension to its point row
         auto const & vars = b.get_vars();
         for (unsigned i = 0; i < b.size(); ++i) {
@@ -52,7 +52,7 @@ void PtMatrix::add_box(box const & b) {
 }
 
 //generate a new literal for a point at position it
-void PtMatrix::add_point(Enode * v, double const p) {
+void Grid::add_point(Enode * v, double const p) {
 
 	assert(v);
 
