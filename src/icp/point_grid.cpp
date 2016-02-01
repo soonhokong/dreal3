@@ -18,6 +18,10 @@ namespace dreal {
 Grid::Grid(box const & b) {
 	top_lit = 0;
 	auto const & vars = b.get_vars();
+	vector<int>* current_formula = new vector<int>;
+	vector<int>* push_formula = new vector<int>;
+	assert(current_formula);
+	assert(push_formula);
         for (unsigned i = 0; i < b.size(); ++i) {
 		//initialize storage
 		Enode * v = vars[i];
@@ -34,11 +38,13 @@ Grid::Grid(box const & b) {
 }
 
 Grid::~Grid() {
-	for (auto const & it : point_rows) delete it.second;
+	delete current_formula;
+	delete push_formula;
+	for (auto const & it : lu_clauses) delete it;
+	for (auto const & it : linear_clauses) delete it;
 	for (auto const & it : lb_lits) delete it.second;
 	for (auto const & it : ub_lits) delete it.second;
-	for (auto const & it : linear_clauses) delete it;
-	for (auto const & it : lu_clauses) delete it;
+	for (auto const & it : point_rows) delete it.second;
 }
 
 void Grid::add_box(box const & b) {
@@ -60,7 +66,7 @@ void Grid::add_point(Enode * v, double const p) {
 	unsigned old_size = row_v -> size();
 	set<double>::iterator it = (row_v->emplace(p)).first;
 
-	if (old_size == row_v -> size()) return;
+	if ( old_size == row_v->size() ) return;
 	
 	//I'm gonna move around on the sequence and it became buggy.
 	//so I'm temporarily putting things in a vector. can definitely be improved. 
@@ -90,6 +96,18 @@ void Grid::add_point(Enode * v, double const p) {
 	assert(new_ub_lit == new_lb_lit + 1);//sanity check
 	assert(top_lit%2 == 0); //should be even
 
+	//update the lb and ub disjunctive constraints. note that 0 is poped first and then pushed back
+	full_lb_clauses.pop_back();
+	full_lb_clauses.push_back(new_lb_lit);
+	full_lb_clauses.push_back(0);
+	full_ub_clauses.pop_back();
+	full_ub_clauses.push_back(new_ub_lit);	
+	full_ub_clauses.push_back(0);
+
+	//clean up the cache for pushed_clauses
+	push_linear_clauses.clear();
+	push_lu_clauses.clear();
+
 	/*compare the new point with its neighbors*/	
 	//if it's not the smallest, add constraints regarding the left side
 	int pre = id-1;
@@ -98,26 +116,34 @@ void Grid::add_point(Enode * v, double const p) {
 		double pre_value = row_helper[pre];
 		//index of the previous lb literal
 		int pre_index = lb_lit_map[std::make_pair(v,pre_value)];
+
 		//first, add a new linear clause for "x>it \implies x>it--"
 		vector<int> * lc_left_low = new vector<int>;
 		lc_left_low -> push_back( -new_lb_lit ); //negation of x>it
 		lc_left_low -> push_back( pre_index ); //x>it--
 		lc_left_low -> push_back( 0 ); //end of clause
+
 		linear_clauses.push_back(lc_left_low); //put it in the global storage
+		push_linear_clauses.push_back(lc_left_low);
+
 		//next, add a new linear clause for "x<it-- \implies x<it"
 		//WARNING: note that all ub literals requires +1 on the index
 		vector<int> * lc_left_up = new vector<int>;
 		lc_left_up -> push_back( - (pre_index+1) ); //negation of x<it--
 		lc_left_up -> push_back( new_ub_lit ); //x>it--
 		lc_left_up -> push_back( 0 ); //end of clause
+
 		linear_clauses.push_back(lc_left_up); //put it in the global storage
+		push_linear_clauses.push_back(lc_left_up);
 	
 		//now add a new clause saying "u_i \implies \not l_i-1"
 		vector<int> * lu_left = new vector<int>;
 		lu_left -> push_back( - new_ub_lit );
 		lu_left -> push_back( - pre_index );
 		lu_left -> push_back( 0 );
-		lu_clauses.push_back( lu_left );
+
+		lu_clauses.push_back(lu_left);
+		push_lu_clauses.push_back(lu_left);
 
 	}//else, do nothing
 
@@ -127,26 +153,34 @@ void Grid::add_point(Enode * v, double const p) {
 		double succ_value = row_helper[succ];
 		//index of the next lb literal
 		int succ_index = lb_lit_map[std::make_pair(v,succ_value)]; 
+
 		//first, add a new linear clause for "x>it++ \implies x>it"
 		vector<int> * lc_right_low = new vector<int>;
 		lc_right_low -> push_back( -succ_index ); //negation of x>it
 		lc_right_low -> push_back( new_lb_lit ); //x>it--
 		lc_right_low -> push_back( 0 ); //end of clause
+
 		linear_clauses.push_back(lc_right_low); //put it in the global storage
+		push_linear_clauses.push_back(lc_right_low);
+
 		//next, add a new linear clause for "x<it \implies x<it++"
 		//WARNING: note that all ub literals requires +1 on the index
 		vector<int> * lc_right_up = new vector<int>;
 		lc_right_up -> push_back( - new_ub_lit ); //negation of x<it
 		lc_right_up -> push_back( succ_index+1 ); //x>it++
 		lc_right_up -> push_back( 0 ); //end of clause
+
 		linear_clauses.push_back(lc_right_up); //put it in the global storage
+		push_linear_clauses.push_back(lc_right_up);	
 	
 		//now add a new clause saying "l_i \implies \not u_i+1"
 		vector<int> * lu_right = new vector<int>;
 		lu_right -> push_back( -new_lb_lit );
 		lu_right -> push_back( - (succ_index+1) );
 		lu_right -> push_back( 0 );
-		lu_clauses.push_back( lu_right );
+
+		lu_clauses.push_back(lu_right);
+		push_lu_clauses.push_back(lu_right);
 
 	}//else, do nothing
 } 
