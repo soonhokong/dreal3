@@ -109,6 +109,7 @@ class picosat_wrapper {
 private:
     PicoSAT * m_psat;
     pred_abs m_store;
+    std::vector<int> m_pmodel;
 
 public:
     picosat_wrapper();
@@ -143,14 +144,19 @@ public:
     // Add B => l1 \/ l2 \/ l3 \/ l4
     void add_imply(box const & b, int const l1, int const l2 = 0, int const l3 = 0, int const l4 = 0);
 
+    // Add l1 \/ l2 \/ l3 \/ l4
+    void add_imply(int const l1, int const l2 = 0, int const l3 = 0, int const l4 = 0);
+
     // Add B => (B[v].lb <= v <= m) xor (m <= v <= B[v].ub)
     void add_branching(box const & b, Enode * v, double const m);
+
+    void block_current_assignment();
 
     int check_sat();
 
     // Precondition: check_sat() == PICOSAT_SATISFIABLE
     // Reduce the given box b into a smaller box using SAT model
-    box reduce_using_model(box b) const;
+    box reduce_using_model(box b);
 
     void debug_print() const;
 };

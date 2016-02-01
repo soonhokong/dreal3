@@ -42,10 +42,12 @@ using std::dynamic_pointer_cast;
 
 namespace dreal {
 box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, contractor & ctc, SMTConfig & config) {
+    DREAL_LOG_FATAL << "sat_icp::solve -- start";
     thread_local static std::unordered_set<std::shared_ptr<constraint>> used_constraints;
     used_constraints.clear();
     // Step 1. Initialize SAT Solver
     picosat_wrapper pw;
+    DREAL_LOG_FATAL << "!!! pw.add_box(b)";
     pw.add_box(b);  // Add initial interval constraints
     box const initial_box(b);
 
@@ -60,26 +62,34 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
         }
     }
 
+
     // Step 2. Main Part
     bool stop = false;
     box old_b(b);
     while (!stop) {
-        // Pruning
-        for (auto & nl_ctc : nl_ctcs) {
-            DREAL_LOG_WARNING << "\n\n";
-            pw.debug_print();
-            DREAL_LOG_WARNING << "\n";
-            int ret = pw.check_sat();
-            if (ret == PICOSAT_SATISFIABLE) {
-                DREAL_LOG_WARNING << "SAT solver found a satisfying Boolean assignment";
-                // Case 1: SAT solver found a satisfying Boolean assignment
-                // 1.1. Concretize the satisfying Boolean assignment into a conjunction of constraints
-                // Check each Boolean Variable and if partially assigned to be true, shrink the interval
-                // DREAL_LOG_WARNING << "store.get_num_vars() = " << store.get_num_vars();
-                b = pw.reduce_using_model(initial_box);
-                DREAL_LOG_WARNING << "Current Box = " << "\n"
-                                  << b;
-                // 1.2. Apply pruning operators with box B until it reaches a fixed point B'
+        // Try to get a satisfying Boolean assignment
+        DREAL_LOG_FATAL << "!!! pw.check_sat()";
+        int ret = pw.check_sat();
+        if (ret == PICOSAT_SATISFIABLE) {
+            DREAL_LOG_FATAL << "SAT solver found a satisfying Boolean assignment";
+            // Case 1: SAT solver found a satisfying Boolean assignment
+            // 1.1. Concretize the satisfying Boolean assignment into a conjunction of constraints
+            // Check each Boolean Variable and if partially assigned to be true, shrink the interval
+            DREAL_LOG_FATAL << "!!! pw.reduce_using_model(b)";
+            b = pw.reduce_using_model(initial_box);
+            if (b.is_empty()) {
+                DREAL_LOG_FATAL << "This SAT assignment is an empty-set. ";
+                // pw.block_current_assignment();
+                abort();
+                continue;
+            }
+            DREAL_LOG_FATAL << "Current Box = " << "\n"
+                            << b << "\n\n";
+            // 1.2. Apply pruning operators with box B until it reaches a fixed point B'
+            int i = 0;
+            for (auto & nl_ctc : nl_ctcs) {
+                DREAL_LOG_FATAL << (++i) << "-th PRUNING";
+                assert(!b.is_empty());
                 old_b = b;
                 try {
                     nl_ctc.prune(b, config);
@@ -90,53 +100,64 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
                     config.nra_stat.increase_prune();
                     DREAL_LOG_WARNING << "#Pruning : " << config.nra_stat.m_num_of_prune;
                 }
-
                 // Collect Used Variables
                 unordered_set<Enode *> used_vars;
                 for (auto const & used_ctr : nl_ctc.used_constraints()) {
                     auto const this_used_vars = used_ctr->get_vars();
                     used_vars.insert(this_used_vars.begin(), this_used_vars.end());
                 }
-                DREAL_LOG_WARNING << "|USED VARS| = " << used_vars.size();
 
                 if (b.is_empty()) {
-                    DREAL_LOG_WARNING << "After Pruning, it became an empty set.";
+                    DREAL_LOG_FATAL << "After Pruning, it became an empty set.";
                     // Case i: Pruning returns an empty box.
                     // Add Blocking Clause: !old_b
+                    DREAL_LOG_FATAL << "!!! pw.add_generalized_blocking_box(old_b, " << used_vars.size() << ")";
+                    DREAL_LOG_FATAL << old_b;
                     pw.add_generalized_blocking_box(old_b, used_vars);
-                    break;
+                    break; // Exit the pruning fixed-point loop
                 } else {
-                    DREAL_LOG_WARNING << "After Pruning, it became a non-empty set.\n" << b;
+                    DREAL_LOG_FATAL << "After Pruning, it became a non-empty set.\n" << b;
                     // Case ii: Pruning returns a non-empty box b, learn "old_b => b"
                     if (old_b != b) {
+                        DREAL_LOG_FATAL << "!!! pw.add_generalized_blocking_box(old_b, b, " << used_vars.size() << ")";
                         pw.add_generalized_blocking_box(old_b, b, used_vars);
+                    } else {
+                        DREAL_LOG_FATAL << "Pruning did nothing, no learning as a result";
                     }
                 }
-            } else if (ret == PICOSAT_UNSATISFIABLE) {
-                DREAL_LOG_WARNING << "SAT solver failed to find a satisfying Boolean assignment";
-                // Case 2: SAT solver concludes UNSAT. Return UNSAT.
-                b.set_empty();
-                stop = true;
-                break;
-            } else {
-                assert(ret == PICOSAT_UNKNOWN);
-                DREAL_LOG_WARNING << "SAT Solver failed."; abort();
             }
-        }
+        } else if (ret == PICOSAT_UNSATISFIABLE) {
+            DREAL_LOG_FATAL << "SAT solver failed to find a satisfying Boolean assignment";
+            // Case 2: SAT solver concludes UNSAT. Return UNSAT.
+            b.set_empty();
+            stop = true;
+            break; // exit while loop
+        } else {
+            assert(ret == PICOSAT_UNKNOWN);
+            DREAL_LOG_WARNING << "SAT Solver failed.";
+            abort();
+        }  // SAT Check END
+
+        // (possible) PRUNING is OVER.
+
         // Box is big, and needs to be branched. We also need to learn a clause from this pruning
-        if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
         if (!b.is_empty()) {
             if (b.max_diam() < config.nra_precision) {
-                DREAL_LOG_WARNING << "Box is small enough to stop.";
+                DREAL_LOG_FATAL << "Box is small enough to stop.";
                 // Box is small enough to stop => delta-SAT
-                stop = true;
+                stop = true; // break the outermost while loop
+                break;
             } else {
                 // Pick a branching variable and branching point
                 // TODO(soonhok): b.bisect is an overkill here
                 // since it returns two boxes which are not used
+                if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
                 auto const bisect_result = b.bisect(config.nra_precision);
                 Enode * br_var = b.get_vars()[get<0>(bisect_result)];
                 double const br_point = b[br_var].mid();
+                DREAL_LOG_FATAL << "\n\n"
+                                << "Branching at " << br_var << " = " << br_point << "\n";
+                DREAL_LOG_FATAL << "!!! pw.add_branching(b, " << br_var << ", " << br_point << ")";
                 pw.add_branching(b, br_var, br_point);
             }
         }
@@ -146,6 +167,7 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
     // properly modified (i.e. used constriants, input, and
     // output). Therefore, this function needs to update them properly.
     ctc.set_used_constraints(used_constraints);
+    DREAL_LOG_FATAL << "sat_icp::solve -- end";
     return b;
 }
 }  // namespace dreal
