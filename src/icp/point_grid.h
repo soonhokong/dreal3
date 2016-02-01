@@ -101,10 +101,16 @@ namespace dreal {
             for (auto cl : lu_clauses)
                 for (auto i : cl)
                     current_formula.push_back(i);
-            for (auto i : full_lb_clauses)
-                current_formula.push_back(i);
-            for (auto i : full_ub_clauses)
-                current_formula.push_back(i);
+            for (auto row : lb_lits) {
+		for (auto i : row.second)                
+		    current_formula.push_back(i);
+	    	current_formula.push_back(0);
+	    }
+            for (auto row : ub_lits) {
+		for (auto i : row.second)
+                    current_formula.push_back(i);
+	    	current_formula.push_back(0);
+	    }
         }
         inline void build_push_formula() {
             push_formula.clear();
@@ -114,10 +120,16 @@ namespace dreal {
             for (auto cl : push_lu_clauses)
                 for (auto i : cl)
                     push_formula.push_back(i);
-            for (auto i : full_lb_clauses)
-                push_formula.push_back(i);
-            for (auto i : full_ub_clauses)
-                push_formula.push_back(i);
+ 	    for (auto row : lb_lits) {
+		for (auto i : row.second)                
+		    push_formula.push_back(i);
+	    	push_formula.push_back(0);
+	    }
+            for (auto row : ub_lits) {
+		for (auto i : row.second)
+                    push_formula.push_back(i);
+	    	push_formula.push_back(0);
+	    }
         }
         inline void build_push_nobounds_formula() {
             push_formula.clear();
@@ -130,10 +142,16 @@ namespace dreal {
         }
         inline void build_push_bounds_only_formula() {
             push_formula.clear();
-            for (auto i : full_lb_clauses)
-                push_formula.push_back(i);
-            for (auto i : full_ub_clauses)
-                push_formula.push_back(i);
+ 	    for (auto row : lb_lits) {
+		for (auto i : row.second)                
+		    push_formula.push_back(i);
+	    	push_formula.push_back(0);
+	    }
+            for (auto row : ub_lits) {
+		for (auto i : row.second)
+                    push_formula.push_back(i);
+	    	push_formula.push_back(0);
+	    }
         }
 
         inline std::vector<int> const & get_current_formula() {

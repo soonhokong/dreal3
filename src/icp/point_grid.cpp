@@ -98,6 +98,7 @@ namespace dreal {
         assert(new_ub_lit == new_lb_lit + 1);//sanity check
         assert(top_lit%2 == 0); //should be even
 
+/*
         //update the lb and ub disjunctive constraints. note that 0 is poped first and then pushed back
         assert(full_lb_clauses.size() > 0);
         full_lb_clauses.pop_back();
@@ -108,7 +109,7 @@ namespace dreal {
         full_ub_clauses.pop_back();
         full_ub_clauses.push_back(new_ub_lit);
         full_ub_clauses.push_back(0);
-
+*/
         //clean up the cache for pushed_clauses
         push_linear_clauses.clear();
         push_lu_clauses.clear();
