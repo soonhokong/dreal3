@@ -127,7 +127,7 @@ namespace dreal {
     void picosat_wrapper::add_generalized_blocking_box(box const & b, unordered_set<Enode *> const & vars) {
         // assert(used_vars.size() > 0);
         // assert(vars.size() > 0);
-        unordered_set<Enode*> used_vars(b1.get_vars().begin(), b1.get_vars().end());
+        unordered_set<Enode*> used_vars(b.get_vars().begin(), b.get_vars().end());
         DREAL_LOG_WARNING << "The following BOX is UNSAT and blocked by add_generalized_blocking_box function";
         DREAL_LOG_WARNING << b;
         for (Enode * v : used_vars) {
