@@ -27,7 +27,7 @@ PtMatrix::PtMatrix(box const & b) {
 		point_rows.emplace(v,row_v);
 		lb_lits.emplace(v,lb_v);
 		ub_lits.emplace(v,ub_v);
-		//add the point
+		//add the points
 		add_point(v,b[v].lb());
 		add_point(v,b[v].ub());
         }
@@ -62,8 +62,8 @@ void PtMatrix::add_point(Enode * v, double const p) {
 
 	if (old_size == row_v -> size()) return;
 	
-	//I'm gonna move around on the sequence and it's risky to do on the set. 
-	//should be improved. 
+	//I'm gonna move around on the sequence and it became buggy.
+	//so I'm temporarily putting things in a vector. can definitely be improved. 
 	vector<double> row_helper;	
 	int id = 0;
 	//copy the first part of the vector
