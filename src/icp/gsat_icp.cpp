@@ -36,6 +36,7 @@ using std::cout;
 using std::endl;
 using std::get;
 using std::map;
+using std::set;
 using std::random_device;
 using std::unordered_set;
 using std::vector;
@@ -54,12 +55,22 @@ void add_interval(PicoSAT * ps, Grid const & g, Enode * v, double const l, doubl
 
 void add_vector(PicoSAT * ps, vector<int> const & vec) {
     for (int const l : vec) {
+        DREAL_LOG_FATAL << "picosat adding " << l << "...";
         picosat_add(ps, l);
+        DREAL_LOG_FATAL << "picosat adding " << l << "... done";
     }
+    DREAL_LOG_FATAL << "picosat adding done";
 }
 
 box build_box_from_sat_model(PicoSAT * ps, Grid const & g, box b) {
     // TODO(soonhok): implement this
+    for (Enode * v : b.get_vars()) {
+        set<double> const & point_row = g.get_point_row(v);
+        for (set<double>::iterator it = point_row.begin(); it != point_row.end(); ++it) {
+            cerr << *it << " ";
+        }
+    }
+    abort();
     return b;
 }
 
@@ -124,12 +135,10 @@ box gsat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
     }
     // Add NO Bounds (Before PUSH)
     vector<int> no_bounds = g.get_push_nobounds_formula();
-    no_bounds.pop_back();  // HACK
     add_vector(ps, no_bounds);
     picosat_push(ps);  // <------ PICOSAT_PUSH
     // Add Bounds (After PUSH)
-    vector<int> bounds = g.get_push_nobounds_formula();
-    bounds.pop_back();  // HACK
+    vector<int> bounds = g.get_push_bounds_only_formula();
     add_vector(ps, bounds);
     // ============== INITIALIZATION END =================
 
@@ -141,6 +150,8 @@ box gsat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             b = build_box_from_sat_model(ps, g, initial_box);
             assert(!b.is_empty());
 
+            picosat_pop(ps);  // <------ PICOSAT_POP
+
             box old_box(b);
             try {
                 ctc.prune(b, config);
@@ -150,7 +161,6 @@ box gsat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             } catch (contractor_exception & e) {
                 // Do nothing
             }
-
             if (b.is_empty()) {
                 // Case 1: B ==> empty set
                 //  - Learn clause !B
@@ -172,7 +182,6 @@ box gsat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             DREAL_LOG_FATAL << "Something is wrong with PICOSAT, which returns UNKNOWN.";
             abort();
         }
-
         // ============== BRANCHING BEGIN ===============
         assert(!b.is_empty());  // It should be the case B1 => B2 => ... => Bn and Bn is non-empty
         tuple<int, box, box> splits = b.bisect(config.nra_precision);

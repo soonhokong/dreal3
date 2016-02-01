@@ -93,6 +93,8 @@ namespace dreal {
         Grid(box const &);
         void add_box(box const &);
         void add_point(Enode * v, double const p);
+        std::set<double> get_point_row(Enode * v) { return point_rows[v]; }
+        std::set<double> const & get_point_row(Enode * v) const { return point_rows.at(v); }
         inline int lookup_le(Enode * v, double const p) const {
             return lb_lit_map.at(std::make_pair(v, p));
         }
