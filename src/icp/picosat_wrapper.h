@@ -117,6 +117,9 @@ public:
 
     // Given a variable `v` and two constants `l` and `u` where l < u holds.
     void add_ordering(box const & b, Enode *v, double const l, double const u);
+    void add_ordering(box const & b, std::unordered_set<Enode*> const & used_vars, Enode * v, double const l, double const u);
+    void add_axiom(box const & b, Enode *v, double const c);
+    void add_axiom(box const & b, std::unordered_set<Enode*> const & used_vars, Enode *v, double const c);
 
     // Add: v <= bound
     void add_le(Enode * v, double const bound);
@@ -142,10 +145,8 @@ public:
     void add_generalized_blocking_box(box const & b1, box const & b2, std::unordered_set<Enode *> const & used_vars);
 
     // Add B => l1 \/ l2 \/ l3 \/ l4
-    void add_imply(box const & b, int const l1, int const l2 = 0, int const l3 = 0, int const l4 = 0);
-
-    // Add l1 \/ l2 \/ l3 \/ l4
-    void add_imply(int const l1, int const l2 = 0, int const l3 = 0, int const l4 = 0);
+    void add_imply(box const & b, std::vector<Enode *> const & used_vars, int const l1, int const l2 = 0, int const l3 = 0, int const l4 = 0);
+    void add_imply(box const & b, std::unordered_set<Enode *> const & used_vars, int const l1, int const l2 = 0, int const l3 = 0, int const l4 = 0);
 
     // Add B => (B[v].lb <= v <= m) xor (m <= v <= B[v].ub)
     void add_branching(box const & b, Enode * v, double const m);

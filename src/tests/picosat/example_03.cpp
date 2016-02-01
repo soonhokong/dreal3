@@ -66,14 +66,18 @@ int main() {
     ret = pw.check_sat();
     auto b4 = pw.reduce_using_model(b0);
     DREAL_LOG_FATAL << "b4:\n" << b4 << "\n=====================\n\n";
+    pw.add_generalized_blocking_box(b4, {x, y});
 
-    box b5(b4);
-    b5["x"] = ibex::Interval(1, 2);
-    b5["y"] = ibex::Interval(1, 2);
+    ret = pw.check_sat();
+    box b5 = pw.reduce_using_model(b0);
+    box b6(b5);
+    b6["x"] = ibex::Interval(1, 2);
+    b6["y"] = ibex::Interval(1, 2);
     DREAL_LOG_FATAL << "b5:\n" << b5 << "\n=====================\n\n";
+    DREAL_LOG_FATAL << "b6:\n" << b6 << "\n=====================\n\n";
 
-    DREAL_LOG_FATAL << "b4 => b5\n";
-    pw.add_generalized_blocking_box(b4, b5, {x, y});
+    DREAL_LOG_FATAL << "b5 => b6\n";
+    pw.add_generalized_blocking_box(b5, b6, {x, y});
 
     while (pw.check_sat() == PICOSAT_SATISFIABLE) {
         box b = pw.reduce_using_model(b0);
