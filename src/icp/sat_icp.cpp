@@ -67,7 +67,7 @@ box sat_icp::solve(scoped_vec<std::shared_ptr<constraint>> const & ctrs, box b, 
         // Pruning
         for (auto & nl_ctc : nl_ctcs) {
             DREAL_LOG_WARNING << "\n\n";
-            // pw.debug_print();
+            pw.debug_print();
             DREAL_LOG_WARNING << "\n";
             int ret = pw.check_sat();
             if (ret == PICOSAT_SATISFIABLE) {
