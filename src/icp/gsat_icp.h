@@ -1,7 +1,7 @@
 /*********************************************************************
 Author: Soonho Kong <soonhok@cs.cmu.edu>
 
-dReal -- Copyright (C) 2013 - 2015, Soonho Kong, Sicun Gao, and Edmund Clarke
+dReal -- Copyright (C) 2013 - 2016, Soonho Kong, Sicun Gao, and Edmund Clarke
 
 dReal is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,38 +21,19 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 
 #include <random>
 #include "util/box.h"
+#include "util/scoped_vec.h"
 #include "util/stat.h"
-#include "icp/sat_icp.h"
-#include "icp/gsat_icp.h"
 #include "contractor/contractor.h"
 #include "opensmt/smtsolvers/SMTConfig.h"
 
 namespace dreal {
-void output_solution(box const & b, SMTConfig & config, unsigned i = 0);
 
-class naive_icp {
+class gsat_icp {
 public:
+    // TODO(soonhok): later we need to have
+    // `scoped_vec<std::shared_ptr<constraint>> const & ctrs` to have
+    // fine-grained learning.
     static box solve(box b, contractor & ctc, SMTConfig & config);
-};
-
-class ncbt_icp {
-public:
-    static box solve(box b, contractor & ctc, SMTConfig & config);
-};
-
-class random_icp {
-private:
-    contractor & m_ctc;
-    SMTConfig & m_config;
-    std::mt19937_64 m_rg;
-    std::uniform_real_distribution<double> m_dist;
-    inline bool random_bool() {
-        return m_dist(m_rg) >= 0.5;
-    }
-
-public:
-    random_icp(contractor & ctc, SMTConfig & config);
-    box solve(box b, double const precision);
 };
 
 }  // namespace dreal

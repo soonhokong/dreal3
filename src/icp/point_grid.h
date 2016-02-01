@@ -93,6 +93,22 @@ namespace dreal {
         Grid(box const &);
         void add_box(box const &);
         void add_point(Enode * v, double const p);
+        inline int lookup_le(Enode * v, double const p) const {
+            return lb_lit_map.at(std::make_pair(v, p));
+        }
+        inline int lookup_ge(Enode * v, double const p) const {
+            return lookup_le(v, p) + 1;
+        }
+
+        // p <= v  ==  v >= p
+        inline int lookup_le(double const p, Enode * v) const {
+            return lookup_ge(v, p);
+        }
+        // p >= v  ==  v <= p
+        inline int lookup_ge(double const p, Enode * v) const {
+            return lookup_le(v, p) + 1;
+        }
+
         inline void build_current_formula() {
             current_formula.clear();
             for (auto cl : linear_clauses)
@@ -102,15 +118,15 @@ namespace dreal {
                 for (auto i : cl)
                     current_formula.push_back(i);
             for (auto row : lb_lits) {
-		for (auto i : row.second)                
-		    current_formula.push_back(i);
-	    	current_formula.push_back(0);
-	    }
-            for (auto row : ub_lits) {
-		for (auto i : row.second)
+                for (auto i : row.second)
                     current_formula.push_back(i);
-	    	current_formula.push_back(0);
-	    }
+                current_formula.push_back(0);
+            }
+            for (auto row : ub_lits) {
+                for (auto i : row.second)
+                    current_formula.push_back(i);
+                current_formula.push_back(0);
+            }
         }
         inline void build_push_formula() {
             push_formula.clear();
@@ -120,16 +136,16 @@ namespace dreal {
             for (auto cl : push_lu_clauses)
                 for (auto i : cl)
                     push_formula.push_back(i);
- 	    for (auto row : lb_lits) {
-		for (auto i : row.second)                
-		    push_formula.push_back(i);
-	    	push_formula.push_back(0);
-	    }
-            for (auto row : ub_lits) {
-		for (auto i : row.second)
+            for (auto row : lb_lits) {
+                for (auto i : row.second)
                     push_formula.push_back(i);
-	    	push_formula.push_back(0);
-	    }
+                push_formula.push_back(0);
+            }
+            for (auto row : ub_lits) {
+                for (auto i : row.second)
+                    push_formula.push_back(i);
+                push_formula.push_back(0);
+            }
         }
         inline void build_push_nobounds_formula() {
             push_formula.clear();
@@ -142,16 +158,16 @@ namespace dreal {
         }
         inline void build_push_bounds_only_formula() {
             push_formula.clear();
- 	    for (auto row : lb_lits) {
-		for (auto i : row.second)                
-		    push_formula.push_back(i);
-	    	push_formula.push_back(0);
-	    }
-            for (auto row : ub_lits) {
-		for (auto i : row.second)
+            for (auto row : lb_lits) {
+                for (auto i : row.second)
                     push_formula.push_back(i);
-	    	push_formula.push_back(0);
-	    }
+                push_formula.push_back(0);
+            }
+            for (auto row : ub_lits) {
+                for (auto i : row.second)
+                    push_formula.push_back(i);
+                push_formula.push_back(0);
+            }
         }
 
         inline std::vector<int> const & get_current_formula() {
