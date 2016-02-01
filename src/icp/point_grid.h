@@ -79,12 +79,37 @@ public:
 		for (auto i : full_ub_clauses)	
 			push_formula->push_back(i);
 	}
+	inline void build_push_nobounds_formula() {
+		push_formula->clear();
+		for (auto cl : push_linear_clauses)
+			for (auto i : *cl)
+				push_formula->push_back(i);
+		for (auto cl : push_lu_clauses)  
+			for (auto i : *cl) 
+				push_formula->push_back(i);
+	}
+	inline void build_push_bounds_only_formula() {
+		push_formula->clear();
+		for (auto i : full_lb_clauses)	
+			push_formula->push_back(i);
+		for (auto i : full_ub_clauses)	
+			push_formula->push_back(i);
+	}
+
 	inline std::vector<int> * get_current_formula() { 
 		build_current_formula();
 		return current_formula; 
 	}
 	inline std::vector<int> * get_push_formula() { 
 		build_push_formula();
+		return push_formula; 
+	}
+	inline std::vector<int> * get_push_nobounds_formula() { 
+		build_push_nobounds_formula();
+		return push_formula; 
+	}
+	inline std::vector<int> * get_push_bounds_only_formula() { 
+		build_push_bounds_only_formula();
 		return push_formula; 
 	}
 };
