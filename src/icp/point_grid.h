@@ -92,14 +92,17 @@ namespace dreal {
         Grid(box const &);
         void add_box(box const &);
         void add_point(Enode *, double const);
-	void add_initial_points(Enode *, double const, double const);
+        void add_initial_points(Enode *, double const, double const);
         std::set<double> get_point_row(Enode * v) { return point_rows[v]; }
         std::set<double> const & get_point_row(Enode * v) const { return point_rows.at(v); }
+
+        // v <= p
         inline int lookup_le(Enode * v, double const p) const {
-            return lb_lit_map.at(std::make_pair(v, p));
+            return lookup_ge(v, p) + 1;
         }
+        // v >= p
         inline int lookup_ge(Enode * v, double const p) const {
-            return lookup_le(v, p) + 1;
+            return lb_lit_map.at(std::make_pair(v, p));
         }
 
         // p <= v  ==  v >= p
@@ -148,8 +151,8 @@ namespace dreal {
                     push_formula.push_back(i);
                 push_formula.push_back(0);
             }
-	    push_linear_clauses.clear();
-	    push_lu_clauses.clear();
+            push_linear_clauses.clear();
+            push_lu_clauses.clear();
         }
         inline void build_push_nobounds_formula() {
             push_formula.clear();
@@ -159,8 +162,8 @@ namespace dreal {
             for (auto cl : push_lu_clauses)
                 for (auto i : cl)
                     push_formula.push_back(i);
-	    push_linear_clauses.clear();
-	    push_lu_clauses.clear();
+            push_linear_clauses.clear();
+            push_lu_clauses.clear();
         }
         inline void build_push_bounds_only_formula() {
             push_formula.clear();

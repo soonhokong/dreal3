@@ -37,13 +37,15 @@ private:
 
     // add (l <= v) /\ (v <= u)
     void add_interval(Enode * v, double const l, double const u);
+    // add b => l1 \/ l2 \/ l3 \/ l4
+    void add_imply(box const & b, int const l1 = 0, int const l2 = 0, int const l3 = 0, int const l4 = 0);
     void add_vector(std::vector<int> const & vec);
     box build_box_from_sat_model();
-    // Given a box `b`, Add `!b`
+    // given a box `b`, Add `!b`
     void add_learned_clause(box const & b);
-    // Given boxes `b1` and `b2`, add `b1 => b2`, that is `!b1 \/ b2`
+    // given boxes `b1` and `b2`, add `b1 => b2`, that is `!b1 \/ b2`
     void add_learned_clause(box const & b1, box const & b2);
-
+    void add_branch(box const & b, Enode * v, double const p);
 
 public:
     gsat_icp(box const & b);

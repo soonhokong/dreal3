@@ -62,12 +62,9 @@ void gsat_icp::add_interval(Enode * v, double const l, double const u) {
 }
 
 void gsat_icp::add_vector(vector<int> const & vec) {
-    cerr << "add_vector:";
     for (int const l : vec) {
-        cerr << " " << l;
         picosat_add(m_ps, l);
     }
-    cerr << endl;
 }
 
 box gsat_icp::build_box_from_sat_model() {
@@ -85,7 +82,9 @@ box gsat_icp::build_box_from_sat_model() {
             //
             double const p = *it;
             int const l = m_grid.lookup_le(v, p);
-            int const r = picosat_deref_partial(m_ps, l);
+            // int const r = picosat_deref_partial(m_ps, l);
+            int const r = picosat_deref(m_ps, l);
+            DREAL_LOG_FATAL << "\t\t" << v << " <= " << p << " " << r;
             if (r == 1) {
                 b[v] = ibex::Interval(b[v].lb(), p);
                 DREAL_LOG_FATAL << v << " <= " << p;
@@ -102,7 +101,9 @@ box gsat_icp::build_box_from_sat_model() {
             //
             double const p = *it;
             int const l = m_grid.lookup_ge(v, p);
-            int const r = picosat_deref_partial(m_ps, l);
+            // int const r = picosat_deref_partial(m_ps, l);
+            int const r = picosat_deref(m_ps, l);
+            DREAL_LOG_FATAL << "\t\t" << v << " >= " << p << " " << r;
             if (r == 1) {
                 b[v] = ibex::Interval(p, b[v].ub());
                 DREAL_LOG_FATAL << p << " <= " << v;
@@ -128,7 +129,6 @@ void gsat_icp::add_learned_clause(box const & b) {
 
 // Given boxes `b1` and `b2`, add `b1 => b2`, that is `!b1 \/ b2`
 void gsat_icp::add_learned_clause(box const & b1, box const & b2) {
-    // Step 1. Collect literals in b1
     vector<int> b1_lits;
     auto vars = b1.get_vars();
     for (Enode * v : vars) {
@@ -145,6 +145,7 @@ void gsat_icp::add_learned_clause(box const & b1, box const & b2) {
             picosat_add(m_ps, -l);
         }
         double const l = b2[v].lb();
+        m_grid.add_point(v, l);
         picosat_add(m_ps, m_grid.lookup_le(l, v));
         picosat_add(m_ps, 0);
 
@@ -153,9 +154,45 @@ void gsat_icp::add_learned_clause(box const & b1, box const & b2) {
             picosat_add(m_ps, -l);
         }
         double const u = b2[v].ub();
+        m_grid.add_point(v, u);
         picosat_add(m_ps, m_grid.lookup_le(v, u));
         picosat_add(m_ps, 0);
     }
+}
+
+// Add B => l1 \/ l2 \/ l3 \/ l4
+void gsat_icp::add_imply(box const & b, int const l1, int const l2, int const l3, int const l4) {
+    for (Enode * v : b.get_vars()) {
+        double const l = b[v].lb();
+        double const u = b[v].ub();
+        //     !((l <= v) /\  (v <= u))
+        // -->  !(l <= v) \/ !(v <= u)
+        picosat_add(m_ps, -m_grid.lookup_le(l, v));
+        picosat_add(m_ps, -m_grid.lookup_le(v, u));
+    }
+    picosat_add(m_ps, l1);
+    if (l2) {
+        picosat_add(m_ps, l2);
+        if (l3) {
+            picosat_add(m_ps, l3);
+            if (l4) {
+                picosat_add(m_ps, l4);
+            }
+        }
+    }
+    picosat_add(m_ps, 0);
+}
+
+
+void gsat_icp::add_branch(box const & b, Enode * v, double const p) {
+    // Introduce a branch point, v = p
+    m_grid.add_point(v, p);
+
+    //  B => (p <= v) \/ (v <= p)
+    // !B => (p <= v) \/ (v <= p)
+    int const l1 = m_grid.lookup_le(p, v);
+    int const l2 = m_grid.lookup_le(v, p);
+    add_imply(b, l1, l2);
 }
 
 // scoped_vec<std::shared_ptr<constraint>> const & ctrs
@@ -170,21 +207,22 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
     //     double const u = b[v].ub();
     //     add_interval(v, l, u);
     // }
-    vector<int> no_bounds = m_grid.get_push_nobounds_formula();
-    add_vector(no_bounds);
-    m_grid.debug_print();
-    DREAL_LOG_FATAL << "============== INITIALIZATION END =================";
+    // ============== INITIALIZATION END =================
 
     while (true) {
-        DREAL_LOG_FATAL << "Before picosat_sat";
+        DREAL_LOG_FATAL << "\n\n\n";
+        vector<int> no_bounds = m_grid.get_push_nobounds_formula();
+        add_vector(no_bounds);
         int const ret = picosat_sat(m_ps, -1);
-        DREAL_LOG_FATAL << "After picosat_sat";
         if (ret == PICOSAT_SATISFIABLE) {
             // ============== PRUNING BEGIN ===============
             DREAL_LOG_FATAL << "Found a Boolean assignment";
             b = build_box_from_sat_model();
             assert(!b.is_empty());
-            DREAL_LOG_FATAL << "Current Box\n===========\n" << b;
+            DREAL_LOG_FATAL << "Current Box";
+            DREAL_LOG_FATAL << "===========";
+            DREAL_LOG_FATAL << b;
+
 
             box old_box(b);
             try {
@@ -196,20 +234,25 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
                 // Do nothing
             }
             if (b.is_empty()) {
+                DREAL_LOG_FATAL << "After pruning, we have an empty set";
                 // Case 1: B ==> empty set
                 //  - Learn clause !B
                 add_learned_clause(old_box);
                 continue;  // Go back to the beginning of the while loop, to get another assignment.
             } else {
+                DREAL_LOG_FATAL << "After pruning, we have a non-empty set";
+                DREAL_LOG_FATAL << b;
                 // Case 2: B ==> B'
                 //  - Learn B => B'
                 //  - Add Points in B'
                 assert(b.is_subset(old_box));
                 add_learned_clause(old_box, b);
+
             }
             // ============== PRUNING END   ===============
         } else if (ret == PICOSAT_UNSATISFIABLE) {
             DREAL_LOG_FATAL << "No SAT Assignment";
+            b.set_empty();
             // No satisfying Boolean Assignment
             break;  // Exit the while loop
         } else {
@@ -225,14 +268,15 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
             if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
             Enode * br_var = b.get_vars()[i];   // branched variable;
             double const br_pt = b[i].mid();  // branching point on br_var (for now, it's the mid point).
-            m_grid.add_point(br_var, br_pt);
+            DREAL_LOG_FATAL << "Branching on " << br_var << " = " << br_pt;
+            add_branch(b, br_var, br_pt);
         } else {
             // i < 0, which indicates it's not possible to bisect.
+            DREAL_LOG_FATAL << "Failed to branch (|b = " << b.max_diam() << ")";
             break;  // exit the while loop, since we have a small enough box (DELTA-SAT);
         }
         // ============== BRANCHING END ===============
     }  // end of while loop
-    picosat_reset(m_ps);
     return b;
 }
 }  // namespace dreal
