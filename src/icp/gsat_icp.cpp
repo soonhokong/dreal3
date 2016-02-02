@@ -46,49 +46,86 @@ using std::tuple;
 
 namespace dreal {
 
-void add_interval(PicoSAT * ps, Grid const & g, Enode * v, double const l, double const u) {
-    // Add v >= l
-    picosat_add(ps, g.lookup_ge(v, l)); picosat_add(ps, 0);
-    // Add v <= u
-    picosat_add(ps, g.lookup_le(v, u)); picosat_add(ps, 0);
+gsat_icp::gsat_icp(box const & b) : m_initial_box(b), m_grid(b) {
+    m_ps = picosat_init();
+    picosat_save_original_clauses(m_ps);
 }
 
-void add_vector(PicoSAT * ps, vector<int> const & vec) {
+gsat_icp::~gsat_icp() {
+    picosat_reset(m_ps);
+}
+
+    // add (l <= v) /\ (v <= u)
+void gsat_icp::add_interval(Enode * v, double const l, double const u) {
+    picosat_add(m_ps, m_grid.lookup_le(l, v)); picosat_add(m_ps, 0);  // Add l <= v
+    picosat_add(m_ps, m_grid.lookup_le(v, u)); picosat_add(m_ps, 0);  // Add v <= u
+}
+
+void gsat_icp::add_vector(vector<int> const & vec) {
+    cerr << "add_vector:";
     for (int const l : vec) {
-        DREAL_LOG_FATAL << "picosat adding " << l << "...";
-        picosat_add(ps, l);
-        DREAL_LOG_FATAL << "picosat adding " << l << "... done";
+        cerr << " " << l;
+        picosat_add(m_ps, l);
     }
-    DREAL_LOG_FATAL << "picosat adding done";
+    cerr << endl;
 }
 
-box build_box_from_sat_model(PicoSAT * ps, Grid const & g, box b) {
-    // TODO(soonhok): implement this
+box gsat_icp::build_box_from_sat_model() {
+    box b = m_initial_box;
     for (Enode * v : b.get_vars()) {
-        set<double> const & point_row = g.get_point_row(v);
-        for (set<double>::iterator it = point_row.begin(); it != point_row.end(); ++it) {
-            cerr << *it << " ";
+        set<double> const & point_row = m_grid.get_point_row(v);
+
+        // Find an upperbound for a b[v]
+        for (auto it = point_row.cbegin(); it != point_row.cend(); ++it) {
+            // We scan the point row from left to right (i.e. 1, 2, 3, 4, 5)
+            // Find the first element that holds in the SAT assignment.
+            // This should give us an upperbound for a variable. For example,
+            //
+            // (v <= 1), (v <= 2), (v <= 3), (v <= 4), (v <= 5)
+            //
+            double const p = *it;
+            int const l = m_grid.lookup_le(v, p);
+            int const r = picosat_deref_partial(m_ps, l);
+            if (r == 1) {
+                b[v] = ibex::Interval(b[v].lb(), p);
+                break;  // exit this for-loop
+            }
+        }
+        // Find a lowerbound for a b[v]
+        for (auto it = point_row.crbegin(); it != point_row.crend(); ++it) {
+            // We scan the point row from right to left (i.e. 5, 4, 3, 2, 1)
+            // Find the first element that holds in the SAT assignment.
+            // This should give us a lowerbound for a variable. For example,
+            //
+            // (v >= 5), (v >= 4), (v >= 3), (v >= 2), (v >= 1)
+            //
+            double const p = *it;
+            int const l = m_grid.lookup_ge(v, p);
+            int const r = picosat_deref_partial(m_ps, l);
+            if (r == 1) {
+                b[v] = ibex::Interval(b[v].lb(), p);
+                break;  // exit this for-loop
+            }
         }
     }
-    abort();
     return b;
 }
 
 // Given a box `b`, Add `!b`
-void add_learned_clause(PicoSAT * ps, Grid const & g, box const & b) {
+void gsat_icp::add_learned_clause(box const & b) {
     for (Enode * v : b.get_vars()) {
         double const l = b[v].lb();
         double const u = b[v].ub();
         // !(l <= v <= u) --> !(l <= v  /\   v <= u)
         //                --> !(l <= v) \/ !(v <= u)
-        picosat_add(ps, -g.lookup_le(l, v));
-        picosat_add(ps, -g.lookup_le(v, u));
+        picosat_add(m_ps, -m_grid.lookup_le(l, v));
+        picosat_add(m_ps, -m_grid.lookup_le(v, u));
     }
-    picosat_add(ps, 0);
+    picosat_add(m_ps, 0);
 }
 
 // Given boxes `b1` and `b2`, add `b1 => b2`, that is `!b1 \/ b2`
-void add_learned_clause(PicoSAT * ps, Grid const & g, box const & b1, box const & b2) {
+void gsat_icp::add_learned_clause(box const & b1, box const & b2) {
     // Step 1. Collect literals in b1
     vector<int> b1_lits;
     auto vars = b1.get_vars();
@@ -96,61 +133,53 @@ void add_learned_clause(PicoSAT * ps, Grid const & g, box const & b1, box const 
         double const l = b1[v].lb();
         double const u = b1[v].ub();
         // (l <= v <= u) --> (l <= v  /\   v <= u)
-        b1_lits.push_back(g.lookup_le(l, v));
-        b1_lits.push_back(g.lookup_le(v, u));
+        b1_lits.push_back(m_grid.lookup_le(l, v));
+        b1_lits.push_back(m_grid.lookup_le(v, u));
     }
 
     for (Enode * v : vars) {
         // !b1 --> (l <= v)
         for (int l : b1_lits) {
-            picosat_add(ps, -l);
+            picosat_add(m_ps, -l);
         }
         double const l = b2[v].lb();
-        picosat_add(ps, g.lookup_le(l, v));
-        picosat_add(ps, 0);
+        picosat_add(m_ps, m_grid.lookup_le(l, v));
+        picosat_add(m_ps, 0);
 
         // !b1 --> (v <= u)
         for (int l : b1_lits) {
-            picosat_add(ps, -l);
+            picosat_add(m_ps, -l);
         }
         double const u = b2[v].ub();
-        picosat_add(ps, g.lookup_le(v, u));
-        picosat_add(ps, 0);
+        picosat_add(m_ps, m_grid.lookup_le(v, u));
+        picosat_add(m_ps, 0);
     }
 }
 
 // scoped_vec<std::shared_ptr<constraint>> const & ctrs
-box gsat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
+box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
     unordered_set<std::shared_ptr<constraint>> used_constraints;
-    box initial_box(b);
-    Grid g(b);
-    PicoSAT * ps = picosat_init();
+    box b = m_initial_box;
 
     // ============== INITIALIZATION BEGIN ===============
     // Add initial box
     for (Enode * v : b.get_vars()) {
         double const l = b[v].lb();
         double const u = b[v].ub();
-        add_interval(ps, g, v, l, u);
+        add_interval(v, l, u);
     }
-    // Add NO Bounds (Before PUSH)
-    vector<int> no_bounds = g.get_push_nobounds_formula();
-    add_vector(ps, no_bounds);
-    picosat_push(ps);  // <------ PICOSAT_PUSH
-    // Add Bounds (After PUSH)
-    vector<int> bounds = g.get_push_bounds_only_formula();
-    add_vector(ps, bounds);
+    vector<int> no_bounds = m_grid.get_push_nobounds_formula();
+    add_vector(no_bounds);
     // ============== INITIALIZATION END =================
 
     while (true) {
-        int const ret = picosat_sat(ps, -1);
+        int const ret = picosat_sat(m_ps, -1);
         if (ret == PICOSAT_SATISFIABLE) {
             // ============== PRUNING BEGIN ===============
-            // Find a satisfying Boolean Assignment
-            b = build_box_from_sat_model(ps, g, initial_box);
+            DREAL_LOG_FATAL << "Found a Boolean assignment";
+            b = build_box_from_sat_model();
             assert(!b.is_empty());
-
-            picosat_pop(ps);  // <------ PICOSAT_POP
+            DREAL_LOG_FATAL << "Current Box\n===========\n" << b;
 
             box old_box(b);
             try {
@@ -164,14 +193,14 @@ box gsat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             if (b.is_empty()) {
                 // Case 1: B ==> empty set
                 //  - Learn clause !B
-                add_learned_clause(ps, g, old_box);
+                add_learned_clause(old_box);
                 continue;  // Go back to the beginning of the while loop, to get another assignment.
             } else {
                 // Case 2: B ==> B'
                 //  - Learn B => B'
                 //  - Add Points in B'
                 assert(b.is_subset(old_box));
-                add_learned_clause(ps, g, old_box, b);
+                add_learned_clause(old_box, b);
             }
             // ============== PRUNING END   ===============
         } else if (ret == PICOSAT_UNSATISFIABLE) {
@@ -190,14 +219,14 @@ box gsat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
             if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
             Enode * br_var = b.get_vars()[i];   // branched variable;
             double const br_pt = b[i].mid();  // branching point on br_var (for now, it's the mid point).
-            g.add_point(br_var, br_pt);
+            m_grid.add_point(br_var, br_pt);
         } else {
             // i < 0, which indicates it's not possible to bisect.
             break;  // exit the while loop, since we have a small enough box (DELTA-SAT);
         }
         // ============== BRANCHING END ===============
     }  // end of while loop
-    picosat_reset(ps);
+    picosat_reset(m_ps);
     return b;
 }
 }  // namespace dreal

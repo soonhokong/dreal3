@@ -19,21 +19,40 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include <random>
+#include "contractor/contractor.h"
+#include "icp/point_grid.h"
+#include "opensmt/smtsolvers/SMTConfig.h"
+#include "picosat/picosat.h"
 #include "util/box.h"
 #include "util/scoped_vec.h"
 #include "util/stat.h"
-#include "contractor/contractor.h"
-#include "opensmt/smtsolvers/SMTConfig.h"
 
 namespace dreal {
 
 class gsat_icp {
+private:
+    box const m_initial_box;
+    Grid m_grid;
+    PicoSAT * m_ps;
+
+    // add (l <= v) /\ (v <= u)
+    void add_interval(Enode * v, double const l, double const u);
+    void add_vector(std::vector<int> const & vec);
+    box build_box_from_sat_model();
+    // Given a box `b`, Add `!b`
+    void add_learned_clause(box const & b);
+    // Given boxes `b1` and `b2`, add `b1 => b2`, that is `!b1 \/ b2`
+    void add_learned_clause(box const & b1, box const & b2);
+
+
 public:
+    gsat_icp(box const & b);
+    ~gsat_icp();
+
     // TODO(soonhok): later we need to have
     // `scoped_vec<std::shared_ptr<constraint>> const & ctrs` to have
     // fine-grained learning.
-    static box solve(box b, contractor & ctc, SMTConfig & config);
+    box solve(contractor & ctc, SMTConfig & config);
 };
 
 }  // namespace dreal

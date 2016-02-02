@@ -431,7 +431,8 @@ bool nra_solver::check(bool complete) {
     if (complete) {
         // Complete Check ==> Run ICP
         if (config.nra_sat_icp) {
-            m_box = gsat_icp::solve(m_box, m_ctc, config);
+            gsat_icp gicp(m_box);
+            m_box = gicp.solve(m_ctc, config);
         } else if (config.nra_ncbt) {
             m_box = ncbt_icp::solve(m_box, m_ctc, config);
         } else {

@@ -5,3 +5,7 @@ add_test(picosatexample_01 ${CMAKE_CURRENT_BINARY_DIR}/picosatexample_01)
 add_executable(point_grid test_point_grid.cpp)
 target_link_libraries(point_grid dreal ${EXTRA_LIBS} )
 add_test(point_grid ${CMAKE_CURRENT_BINARY_DIR}/point_grid)
+
+add_executable(push_pop test_push_pop.cpp)
+target_link_libraries(push_pop dreal ${EXTRA_LIBS} )
+add_test(push_pop ${CMAKE_CURRENT_BINARY_DIR}/push_pop)
