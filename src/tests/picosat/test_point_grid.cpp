@@ -41,8 +41,9 @@ int main() {
     b0["y"] = ibex::Interval(0, 10);
     DREAL_LOG_FATAL << "========== INITIAL BOX =============";
     DREAL_LOG_FATAL << b0;
-
     Grid g(b0);
+    g.debug_print();
+
     DREAL_LOG_FATAL << "\n\n========== ADD_POINT(x, 3)==========";
     g.add_point(x, 3);
     g.debug_print();

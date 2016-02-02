@@ -202,10 +202,10 @@ namespace dreal {
             linear_clauses.push_back(lc_left_up); //put it in the global storage
             push_linear_clauses.push_back(lc_left_up);
 
-            //now add a new clause saying "u_i \implies \not l_i-1"
+            //now add a new clause saying "l_i \implies \not u_i-1"
             vector<int> lu_left;
-            lu_left.push_back( - new_ub_lit );
-            lu_left.push_back( - pre_index );
+            lu_left.push_back( - new_lb_lit );
+            lu_left.push_back( - (pre_index+1) );
             lu_left.push_back( 0 );
 
             lu_clauses.push_back(lu_left);
@@ -239,10 +239,10 @@ namespace dreal {
             linear_clauses.push_back(lc_right_up); //put it in the global storage
             push_linear_clauses.push_back(lc_right_up);
 
-            //now add a new clause saying "l_i \implies \not u_i+1"
+            //now add a new clause saying "u_i \implies \not l_{i+1}"
             vector<int> lu_right;
-            lu_right.push_back( -new_lb_lit );
-            lu_right.push_back( - (succ_index+1) );
+            lu_right.push_back( -new_ub_lit );
+            lu_right.push_back( - (succ_index) );
             lu_right.push_back( 0 );
 
             lu_clauses.push_back(lu_right);
@@ -278,7 +278,7 @@ namespace dreal {
             }
         }
         cerr << "======== LINEAR CLAUSES ===========" << endl;
-        for (auto const & c : linear_clauses) {
+       for (auto const & c : linear_clauses) {
             debug_print_clause(c);
         }
         cerr << "======== PUSH LINEAR CLAUSES ===========" << endl;
