@@ -103,7 +103,7 @@ box gsat_icp::build_box_from_sat_model() {
             int const l = m_grid.lookup_ge(v, p);
             int const r = picosat_deref_partial(m_ps, l);
             if (r == 1) {
-                b[v] = ibex::Interval(b[v].lb(), p);
+                b[v] = ibex::Interval(p, b[v].ub());
                 break;  // exit this for-loop
             }
         }
