@@ -92,8 +92,8 @@ namespace dreal {
         assert(top_lit%2 == 0); //should be even
 
         //clean up the cache for pushed_clauses
-        push_linear_clauses.clear();
-        push_lu_clauses.clear();
+        //push_linear_clauses.clear();
+        //push_lu_clauses.clear();
 
 	vector<int> left_c;
 	left_c.push_back(new_lb_lit_left); 
@@ -171,8 +171,8 @@ namespace dreal {
         assert(top_lit%2 == 0); //should be even
 
         //clean up the cache for pushed_clauses
-        push_linear_clauses.clear();
-        push_lu_clauses.clear();
+        //push_linear_clauses.clear();
+        //push_lu_clauses.clear();
 
         /*compare the new point with its neighbors*/
         //if it's not the smallest, add constraints regarding the left side
@@ -273,8 +273,8 @@ namespace dreal {
             for (double const c : it.second) {
                 int const lb_lit = lb_lit_map.at(make_pair(v, c));
                 int const ub_lit = lb_lit + 1;
-                cerr << v << " <= " << c << " : " << lb_lit << endl;
-                cerr << v << " >= " << c << " : " << ub_lit << endl;
+                cerr << v << " >= " << c << " : " << lb_lit << endl;
+                cerr << v << " <= " << c << " : " << ub_lit << endl;
             }
         }
         cerr << "======== LINEAR CLAUSES ===========" << endl;

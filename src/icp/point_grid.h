@@ -148,6 +148,8 @@ namespace dreal {
                     push_formula.push_back(i);
                 push_formula.push_back(0);
             }
+	    push_linear_clauses.clear();
+	    push_lu_clauses.clear();
         }
         inline void build_push_nobounds_formula() {
             push_formula.clear();
@@ -157,6 +159,8 @@ namespace dreal {
             for (auto cl : push_lu_clauses)
                 for (auto i : cl)
                     push_formula.push_back(i);
+	    push_linear_clauses.clear();
+	    push_lu_clauses.clear();
         }
         inline void build_push_bounds_only_formula() {
             push_formula.clear();
@@ -171,7 +175,6 @@ namespace dreal {
                 push_formula.push_back(0);
             }
         }
-
         inline std::vector<int> const & get_current_formula() {
             build_current_formula();
             return current_formula;
