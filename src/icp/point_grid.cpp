@@ -177,7 +177,7 @@ namespace dreal {
         /*compare the new point with its neighbors*/
         //if it's not the smallest, add constraints regarding the left side
         int pre = id-1;
-        if (pre > 0) {
+        if (pre >= 0) {
             //value of the previous point
             double pre_value = row_helper[pre];
             //index of the previous lb literal
@@ -196,7 +196,7 @@ namespace dreal {
             //WARNING: note that all ub literals requires +1 on the index
             vector<int> lc_left_up;
             lc_left_up.push_back( - (pre_index+1) ); //negation of x<it--
-            lc_left_up.push_back( new_ub_lit ); //x>it--
+            lc_left_up.push_back( new_ub_lit ); //x<it
             lc_left_up.push_back( 0 ); //end of clause
 
             linear_clauses.push_back(lc_left_up); //put it in the global storage
