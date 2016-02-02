@@ -62,7 +62,6 @@ namespace dreal {
     private:
         //top_lit keeps the index of the last literal
         unsigned top_lit;
-
         //we need a map from a variable to the ordered points in its dimension
         std::unordered_map<Enode*, std::set<double>> point_rows;
 
@@ -92,7 +91,8 @@ namespace dreal {
     public:
         Grid(box const &);
         void add_box(box const &);
-        void add_point(Enode * v, double const p);
+        void add_point(Enode *, double const);
+	void add_initial_points(Enode *, double const, double const);
         std::set<double> get_point_row(Enode * v) { return point_rows[v]; }
         std::set<double> const & get_point_row(Enode * v) const { return point_rows.at(v); }
         inline int lookup_le(Enode * v, double const p) const {

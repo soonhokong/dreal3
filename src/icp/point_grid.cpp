@@ -45,9 +45,9 @@ namespace dreal {
             // vector<int> vec;
             lb_lits.emplace(v, initializer_list<int>{});
             ub_lits.emplace(v, initializer_list<int>{});
+	    
             //add the points
-            add_point(v,b[v].lb());
-            add_point(v,b[v].ub());
+            add_initial_points(v,b[v].lb(),b[v].ub());
         }
     }
 
@@ -60,6 +60,78 @@ namespace dreal {
             add_point(v,b[v].ub());
         }
     }
+
+   void Grid::add_initial_points(Enode * v, double const left, double const right) {
+	assert(v);
+	assert(left<=right);
+
+        set<double> & row_v = point_rows[v];
+	row_v.emplace(left);
+	row_v.emplace(right);
+
+        //get the lists of lb literals and ub literals for v
+        vector<int> & lb_list = lb_lits[v];
+        vector<int> & ub_list = ub_lits[v];
+
+        //new point always adds a new lower bound literal and a new upper bound literal
+        int new_lb_lit_left = ++top_lit; //x>left
+        lb_list.push_back(new_lb_lit_left); //lb lit is odd 
+        lb_lit_map.emplace(make_pair(v,left),new_lb_lit_left);
+
+        int new_ub_lit_left = ++top_lit; //x<left
+        ub_list.push_back(new_ub_lit_left); //ub lit is even
+
+	//same for right
+        int new_lb_lit_right = ++top_lit; //x>right
+        lb_list.push_back(new_lb_lit_right); //lb lit is odd
+        lb_lit_map.emplace(make_pair(v,right),new_lb_lit_right);
+
+        int new_ub_lit_right = ++top_lit; //x<right
+        ub_list.push_back(new_ub_lit_right); //ub lit is even
+
+        assert(top_lit%2 == 0); //should be even
+
+        //clean up the cache for pushed_clauses
+        push_linear_clauses.clear();
+        push_lu_clauses.clear();
+
+	vector<int> left_c;
+	left_c.push_back(new_lb_lit_left); 
+	left_c.push_back(0);
+	push_linear_clauses.push_back(left_c);
+
+	vector<int> right_c;
+	right_c.push_back(new_ub_lit_right);
+	right_c.push_back(0);
+	push_linear_clauses.push_back(right_c);
+
+	vector<int> left_to_right;
+	left_to_right.push_back(-new_ub_lit_left);
+	left_to_right.push_back(new_ub_lit_right);
+	left_to_right.push_back(0);
+	push_linear_clauses.push_back(left_to_right);
+
+	vector<int> right_to_left;
+	right_to_left.push_back(-new_lb_lit_right);
+	right_to_left.push_back(new_lb_lit_left);
+	right_to_left.push_back(0);
+	push_linear_clauses.push_back(right_to_left);
+
+	if (left!=right) {		
+		vector<int> no_righter;
+		vector<int> no_lefter;
+
+		no_righter.push_back(-new_lb_lit_right);
+		no_righter.push_back(0);
+		push_lu_clauses.push_back(no_righter);
+
+		no_lefter.push_back(-new_ub_lit_left);
+		no_lefter.push_back(0);
+		push_lu_clauses.push_back(no_lefter);
+	}
+   }
+
+
 
 //generate a new literal for a point at position it
     void Grid::add_point(Enode * v, double const p) {
@@ -98,18 +170,6 @@ namespace dreal {
         assert(new_ub_lit == new_lb_lit + 1);//sanity check
         assert(top_lit%2 == 0); //should be even
 
-/*
-        //update the lb and ub disjunctive constraints. note that 0 is poped first and then pushed back
-        assert(full_lb_clauses.size() > 0);
-        full_lb_clauses.pop_back();
-        full_lb_clauses.push_back(new_lb_lit);
-        full_lb_clauses.push_back(0);
-
-        assert(full_ub_clauses.size() > 0);
-        full_ub_clauses.pop_back();
-        full_ub_clauses.push_back(new_ub_lit);
-        full_ub_clauses.push_back(0);
-*/
         //clean up the cache for pushed_clauses
         push_linear_clauses.clear();
         push_lu_clauses.clear();
