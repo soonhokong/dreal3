@@ -63,9 +63,13 @@ void gsat_icp::add_interval(Enode * v, double const l, double const u) {
 
 void gsat_icp::add_vector(vector<int> const & vec) {
     cerr << "ADD VECTOR:";
-    for (int const l : vec) {
-        picosat_add(m_ps, l);
-        cerr << " " << l;
+    if (vec.empty()) {
+        cerr << " NOTHING";
+    } else {
+        for (int const l : vec) {
+            picosat_add(m_ps, l);
+            cerr << " " << l;
+        }
     }
     cerr << endl;
 }
@@ -158,6 +162,8 @@ void gsat_icp::add_learned_clause(box const & b1, box const & b2) {
 
 // Add B => l1 \/ l2 \/ l3 \/ l4
 void gsat_icp::add_imply(box const & b, int const l1, int const l2, int const l3, int const l4) {
+    // TODO(soonhok): delete the following (it's for debugging purposes)
+    vector<int> added_clause;
     for (Enode * v : b.get_vars()) {
         double const l = b[v].lb();
         double const u = b[v].ub();
@@ -165,18 +171,28 @@ void gsat_icp::add_imply(box const & b, int const l1, int const l2, int const l3
         // -->  !(l <= v) \/ !(v <= u)
         picosat_add(m_ps, -m_grid.lookup_le(l, v));
         picosat_add(m_ps, -m_grid.lookup_le(v, u));
+        added_clause.push_back(-m_grid.lookup_le(l, v));
+        added_clause.push_back(-m_grid.lookup_le(v, u));
     }
-    picosat_add(m_ps, l1);
-    if (l2) {
-        picosat_add(m_ps, l2);
-        if (l3) {
-            picosat_add(m_ps, l3);
-            if (l4) {
-                picosat_add(m_ps, l4);
+    if(l1) {
+        picosat_add(m_ps, l1);
+        added_clause.push_back(l1);
+        if (l2) {
+            picosat_add(m_ps, l2);
+            added_clause.push_back(l2);
+            if (l3) {
+                picosat_add(m_ps, l3);
+                added_clause.push_back(l3);
+                if (l4) {
+                    picosat_add(m_ps, l4);
+                    added_clause.push_back(l4);
+                }
             }
         }
     }
     picosat_add(m_ps, 0);
+    added_clause.push_back(0);
+    cerr << "ADD_IMPLY: "; m_grid.debug_print_clause(added_clause);
 }
 
 // Add l1 \/ l2 \/ l3 \/ l4
