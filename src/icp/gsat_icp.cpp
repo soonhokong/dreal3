@@ -62,9 +62,12 @@ void gsat_icp::add_interval(Enode * v, double const l, double const u) {
 }
 
 void gsat_icp::add_vector(vector<int> const & vec) {
+    cerr << "add_vector : ";
     for (int const l : vec) {
         picosat_add(m_ps, l);
+        cerr << l << " ";
     }
+    cerr << endl;
 }
 
 box gsat_icp::build_box_from_sat_model() {
@@ -82,8 +85,8 @@ box gsat_icp::build_box_from_sat_model() {
             //
             double const p = *it;
             int const l = m_grid.lookup_le(v, p);
-            // int const r = picosat_deref_partial(m_ps, l);
-            int const r = picosat_deref(m_ps, l);
+            int const r = picosat_deref_partial(m_ps, l);
+            // int const r = picosat_deref(m_ps, l);
             DREAL_LOG_WARNING << "\t\t" << v << " <= " << p << " " << r;
             if (r == 1) {
                 b[v] = ibex::Interval(b[v].lb(), p);
@@ -214,6 +217,8 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
         DREAL_LOG_WARNING << "\n\n\n";
         vector<int> no_bounds = m_grid.get_push_nobounds_formula();
         add_vector(no_bounds);
+        m_grid.debug_print();
+
         int const ret = picosat_sat(m_ps, -1);
         if (ret == PICOSAT_SATISFIABLE) {
             // ============== PRUNING BEGIN ===============
