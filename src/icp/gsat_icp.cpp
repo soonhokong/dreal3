@@ -88,6 +88,7 @@ box gsat_icp::build_box_from_sat_model() {
             int const r = picosat_deref_partial(m_ps, l);
             if (r == 1) {
                 b[v] = ibex::Interval(b[v].lb(), p);
+                DREAL_LOG_FATAL << v << " <= " << p;
                 break;  // exit this for-loop
             }
         }
@@ -104,6 +105,7 @@ box gsat_icp::build_box_from_sat_model() {
             int const r = picosat_deref_partial(m_ps, l);
             if (r == 1) {
                 b[v] = ibex::Interval(p, b[v].ub());
+                DREAL_LOG_FATAL << p << " <= " << v;
                 break;  // exit this for-loop
             }
         }
@@ -163,17 +165,20 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
 
     // ============== INITIALIZATION BEGIN ===============
     // Add initial box
-    for (Enode * v : b.get_vars()) {
-        double const l = b[v].lb();
-        double const u = b[v].ub();
-        add_interval(v, l, u);
-    }
+    // for (Enode * v : b.get_vars()) {
+    //     double const l = b[v].lb();
+    //     double const u = b[v].ub();
+    //     add_interval(v, l, u);
+    // }
     vector<int> no_bounds = m_grid.get_push_nobounds_formula();
     add_vector(no_bounds);
-    // ============== INITIALIZATION END =================
+    m_grid.debug_print();
+    DREAL_LOG_FATAL << "============== INITIALIZATION END =================";
 
     while (true) {
+        DREAL_LOG_FATAL << "Before picosat_sat";
         int const ret = picosat_sat(m_ps, -1);
+        DREAL_LOG_FATAL << "After picosat_sat";
         if (ret == PICOSAT_SATISFIABLE) {
             // ============== PRUNING BEGIN ===============
             DREAL_LOG_FATAL << "Found a Boolean assignment";
@@ -204,6 +209,7 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
             }
             // ============== PRUNING END   ===============
         } else if (ret == PICOSAT_UNSATISFIABLE) {
+            DREAL_LOG_FATAL << "No SAT Assignment";
             // No satisfying Boolean Assignment
             break;  // Exit the while loop
         } else {
