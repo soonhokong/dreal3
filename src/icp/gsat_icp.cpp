@@ -62,9 +62,12 @@ void gsat_icp::add_interval(Enode * v, double const l, double const u) {
 }
 
 void gsat_icp::add_vector(vector<int> const & vec) {
+    cerr << "ADD VECTOR:";
     for (int const l : vec) {
         picosat_add(m_ps, l);
+        cerr << " " << l;
     }
+    cerr << endl;
 }
 
 box gsat_icp::build_box_from_sat_model() {
@@ -116,15 +119,7 @@ box gsat_icp::build_box_from_sat_model() {
 
 // Given a box `b`, Add `!b`
 void gsat_icp::add_learned_clause(box const & b) {
-    for (Enode * v : b.get_vars()) {
-        double const l = b[v].lb();
-        double const u = b[v].ub();
-        // !(l <= v <= u) --> !(l <= v  /\   v <= u)
-        //                --> !(l <= v) \/ !(v <= u)
-        picosat_add(m_ps, -m_grid.lookup_le(l, v));
-        picosat_add(m_ps, -m_grid.lookup_le(v, u));
-    }
-    picosat_add(m_ps, 0);
+    add_imply(b);
 }
 
 // Given boxes `b1` and `b2`, add `b1 => b2`, that is `!b1 \/ b2`
@@ -140,22 +135,23 @@ void gsat_icp::add_learned_clause(box const & b1, box const & b2) {
     }
 
     for (Enode * v : vars) {
-        // !b1 --> (l <= v)
+        double const lb = b2[v].lb();
+        double const ub = b2[v].ub();
+        m_grid.add_point(v, lb);
+        m_grid.add_point(v, ub);
+
+        // !b1 --> (lb <= v)
         for (int l : b1_lits) {
             picosat_add(m_ps, -l);
         }
-        double const l = b2[v].lb();
-        m_grid.add_point(v, l);
-        picosat_add(m_ps, m_grid.lookup_le(l, v));
+        picosat_add(m_ps, m_grid.lookup_le(lb, v));
         picosat_add(m_ps, 0);
 
-        // !b1 --> (v <= u)
+        // !b1 --> (v <= ub)
         for (int l : b1_lits) {
             picosat_add(m_ps, -l);
         }
-        double const u = b2[v].ub();
-        m_grid.add_point(v, u);
-        picosat_add(m_ps, m_grid.lookup_le(v, u));
+        picosat_add(m_ps, m_grid.lookup_le(v, ub));
         picosat_add(m_ps, 0);
     }
 }
@@ -183,13 +179,28 @@ void gsat_icp::add_imply(box const & b, int const l1, int const l2, int const l3
     picosat_add(m_ps, 0);
 }
 
+// Add l1 \/ l2 \/ l3 \/ l4
+void gsat_icp::add_imply(int const l1, int const l2, int const l3, int const l4) {
+    assert(l1);
+    picosat_add(m_ps, l1);
+    if (l2) {
+        picosat_add(m_ps, l2);
+        if (l3) {
+            picosat_add(m_ps, l3);
+            if (l4) {
+                picosat_add(m_ps, l4);
+            }
+        }
+    }
+    picosat_add(m_ps, 0);
+}
 
 void gsat_icp::add_branch(box const & b, Enode * v, double const p) {
     // Introduce a branch point, v = p
     m_grid.add_point(v, p);
 
     //  B => (p <= v) \/ (v <= p)
-    // !B => (p <= v) \/ (v <= p)
+    // !B \/ (p <= v) \/ (v <= p)
     int const l1 = m_grid.lookup_le(p, v);
     int const l2 = m_grid.lookup_le(v, p);
     add_imply(b, l1, l2);
@@ -200,19 +211,11 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
     unordered_set<std::shared_ptr<constraint>> used_constraints;
     box b = m_initial_box;
 
-    // ============== INITIALIZATION BEGIN ===============
-    // Add initial box
-    // for (Enode * v : b.get_vars()) {
-    //     double const l = b[v].lb();
-    //     double const u = b[v].ub();
-    //     add_interval(v, l, u);
-    // }
-    // ============== INITIALIZATION END =================
-
     while (true) {
         DREAL_LOG_FATAL << "\n\n\n";
         vector<int> no_bounds = m_grid.get_push_nobounds_formula();
         add_vector(no_bounds);
+        m_grid.debug_print();
         int const ret = picosat_sat(m_ps, -1);
         if (ret == PICOSAT_SATISFIABLE) {
             // ============== PRUNING BEGIN ===============
@@ -222,7 +225,6 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
             DREAL_LOG_FATAL << "Current Box";
             DREAL_LOG_FATAL << "===========";
             DREAL_LOG_FATAL << b;
-
 
             box old_box(b);
             try {
@@ -243,11 +245,11 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
                 DREAL_LOG_FATAL << "After pruning, we have a non-empty set";
                 DREAL_LOG_FATAL << b;
                 // Case 2: B ==> B'
-                //  - Learn B => B'
-                //  - Add Points in B'
+                //  - Learn B => B' (+ add_point in B')
                 assert(b.is_subset(old_box));
-                add_learned_clause(old_box, b);
-
+                if (old_box != b) {
+                    add_learned_clause(old_box, b);
+                }
             }
             // ============== PRUNING END   ===============
         } else if (ret == PICOSAT_UNSATISFIABLE) {

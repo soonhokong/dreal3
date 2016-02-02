@@ -39,6 +39,8 @@ private:
     void add_interval(Enode * v, double const l, double const u);
     // add b => l1 \/ l2 \/ l3 \/ l4
     void add_imply(box const & b, int const l1 = 0, int const l2 = 0, int const l3 = 0, int const l4 = 0);
+    // add l1 \/ l2 \/ l3 \/ l4
+    void add_imply(int const l1, int const l2 = 0, int const l3 = 0, int const l4 = 0);
     void add_vector(std::vector<int> const & vec);
     box build_box_from_sat_model();
     // given a box `b`, Add `!b`
