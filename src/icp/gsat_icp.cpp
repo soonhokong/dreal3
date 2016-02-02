@@ -62,16 +62,9 @@ void gsat_icp::add_interval(Enode * v, double const l, double const u) {
 }
 
 void gsat_icp::add_vector(vector<int> const & vec) {
-    cerr << "ADD VECTOR:";
-    if (vec.empty()) {
-        cerr << " NOTHING";
-    } else {
-        for (int const l : vec) {
-            picosat_add(m_ps, l);
-            cerr << " " << l;
-        }
+    for (int const l : vec) {
+        picosat_add(m_ps, l);
     }
-    cerr << endl;
 }
 
 box gsat_icp::build_box_from_sat_model() {
@@ -91,10 +84,10 @@ box gsat_icp::build_box_from_sat_model() {
             int const l = m_grid.lookup_le(v, p);
             // int const r = picosat_deref_partial(m_ps, l);
             int const r = picosat_deref(m_ps, l);
-            DREAL_LOG_FATAL << "\t\t" << v << " <= " << p << " " << r;
+            DREAL_LOG_WARNING << "\t\t" << v << " <= " << p << " " << r;
             if (r == 1) {
                 b[v] = ibex::Interval(b[v].lb(), p);
-                DREAL_LOG_FATAL << v << " <= " << p;
+                DREAL_LOG_WARNING << v << " <= " << p;
                 break;  // exit this for-loop
             }
         }
@@ -110,10 +103,10 @@ box gsat_icp::build_box_from_sat_model() {
             int const l = m_grid.lookup_ge(v, p);
             // int const r = picosat_deref_partial(m_ps, l);
             int const r = picosat_deref(m_ps, l);
-            DREAL_LOG_FATAL << "\t\t" << v << " >= " << p << " " << r;
+            DREAL_LOG_WARNING << "\t\t" << v << " >= " << p << " " << r;
             if (r == 1) {
                 b[v] = ibex::Interval(p, b[v].ub());
-                DREAL_LOG_FATAL << p << " <= " << v;
+                DREAL_LOG_WARNING << p << " <= " << v;
                 break;  // exit this for-loop
             }
         }
@@ -162,8 +155,6 @@ void gsat_icp::add_learned_clause(box const & b1, box const & b2) {
 
 // Add B => l1 \/ l2 \/ l3 \/ l4
 void gsat_icp::add_imply(box const & b, int const l1, int const l2, int const l3, int const l4) {
-    // TODO(soonhok): delete the following (it's for debugging purposes)
-    vector<int> added_clause;
     for (Enode * v : b.get_vars()) {
         double const l = b[v].lb();
         double const u = b[v].ub();
@@ -171,28 +162,20 @@ void gsat_icp::add_imply(box const & b, int const l1, int const l2, int const l3
         // -->  !(l <= v) \/ !(v <= u)
         picosat_add(m_ps, -m_grid.lookup_le(l, v));
         picosat_add(m_ps, -m_grid.lookup_le(v, u));
-        added_clause.push_back(-m_grid.lookup_le(l, v));
-        added_clause.push_back(-m_grid.lookup_le(v, u));
     }
     if(l1) {
         picosat_add(m_ps, l1);
-        added_clause.push_back(l1);
         if (l2) {
             picosat_add(m_ps, l2);
-            added_clause.push_back(l2);
             if (l3) {
                 picosat_add(m_ps, l3);
-                added_clause.push_back(l3);
                 if (l4) {
                     picosat_add(m_ps, l4);
-                    added_clause.push_back(l4);
                 }
             }
         }
     }
     picosat_add(m_ps, 0);
-    added_clause.push_back(0);
-    cerr << "ADD_IMPLY: "; m_grid.debug_print_clause(added_clause);
 }
 
 // Add l1 \/ l2 \/ l3 \/ l4
@@ -228,10 +211,9 @@ box gsat_icp::solve(contractor & ctc, SMTConfig & config) {
     box b = m_initial_box;
 
     while (true) {
-        DREAL_LOG_FATAL << "\n\n\n";
+        DREAL_LOG_WARNING << "\n\n\n";
         vector<int> no_bounds = m_grid.get_push_nobounds_formula();
         add_vector(no_bounds);
-        m_grid.debug_print();
         int const ret = picosat_sat(m_ps, -1);
         if (ret == PICOSAT_SATISFIABLE) {
             // ============== PRUNING BEGIN ===============
