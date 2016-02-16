@@ -73,7 +73,7 @@ void box::constructFromVariables(vector<Enode *> const & vars) {
     if (num_var > 0) {
         m_values.resize(num_var);
         // Fill m_values, and m_name_index_map
-        for (unsigned i = 0; i < num_var; i++) {
+        for (unsigned i = 0; i < num_var; ++i) {
             Enode const * const e = vars[i];
             double const lb = e->getDomainLowerBound();
             double const ub = e->getDomainUpperBound();
@@ -112,7 +112,7 @@ box::box(box const & b, unordered_set<Enode *> const & extra_vars)
     if (m_vars->size() > 0) {
         sort(m_vars->begin(), m_vars->end(), enode_lex_cmp());
         constructFromVariables(*m_vars);
-        for (unsigned i = 0; i < b.m_vars->size(); i++) {
+        for (unsigned i = 0; i < b.m_vars->size(); ++i) {
             m_values[get_index((*b.m_vars)[i])] = b.m_values[i];
         }
     }
@@ -146,7 +146,7 @@ ostream& display_diff(ostream& out, box const & b1, box const & b2) {
     out.precision(16);
     assert(b1.size() == b2.size());
     unsigned const s = b1.size();
-    for (unsigned i = 0; i < s; i++) {
+    for (unsigned i = 0; i < s; ++i) {
         Enode * e1 = (*b1.m_vars)[i];
         assert(e1 == (*b2.m_vars)[i]);
         ibex::Interval const & v1 = b1.m_values[i];
@@ -175,7 +175,7 @@ ostream& display(ostream& out, box const & b, bool const exact, bool const old_s
     if (old_style) {
         out << "delta-sat with the following box:" << endl;
         unsigned const s = b.size();
-        for (unsigned i = 0; i < s; i++) {
+        for (unsigned i = 0; i < s; ++i) {
             if (i != 0) {
                 out << endl;
             }
@@ -189,7 +189,7 @@ ostream& display(ostream& out, box const & b, bool const exact, bool const old_s
         }
     } else {
         unsigned const s = b.size();
-        for (unsigned i = 0; i < s; i++) {
+        for (unsigned i = 0; i < s; ++i) {
             if (i != 0) {
                 out << endl;
             }
@@ -228,7 +228,7 @@ tuple<int, box, box> box::bisect(double precision) const {
     // TODO(soonhok): implement other bisect policy
     int index = -1;
     double max_diam = numeric_limits<double>::min();
-    for (int i = 0; i < m_values.size(); i++) {
+    for (int i = 0; i < m_values.size(); ++i) {
         double current_diam = m_values[i].diam();
         double ith_precision = (*m_vars)[i]->hasPrecision() ? (*m_vars)[i]->getPrecision() : precision;
         if (current_diam > max_diam && current_diam > ith_precision && m_values[i].is_bisectable()) {
@@ -296,7 +296,7 @@ tuple<int, box, box> box::bisect_at(int i) const {
 
 double box::max_diam() const {
     double max_diam = numeric_limits<double>::min();
-    for (int i = 0; i < m_values.size(); i++) {
+    for (int i = 0; i < m_values.size(); ++i) {
         double current_diam = m_values[i].diam();
         if (current_diam > max_diam && m_values[i].is_bisectable()) {
             max_diam = current_diam;
@@ -308,7 +308,7 @@ double box::max_diam() const {
 vector<bool> box::diff_dims(box const & b) const {
     assert(size() == b.size());
     vector<bool> ret(size(), false);
-    for (unsigned i = 0; i < b.size(); i++) {
+    for (unsigned i = 0; i < b.size(); ++i) {
         if (m_values[i] != b.m_values[i]) { ret[i] = true; }
     }
     return ret;
@@ -319,7 +319,7 @@ box box::sample_point() const {
     unsigned const n = size();
     box b(*this);
     ibex::IntervalVector const & values = get_values();
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; ++i) {
         ibex::Interval const & iv = values[i];
         double const lb = iv.lb();
         double const ub = iv.ub();
@@ -333,7 +333,7 @@ box box::sample_point() const {
 
 set<box> box::sample_points(unsigned const n) const {
     set<box> points;
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; ++i) {
         points.insert(sample_point());
     }
     return points;
@@ -341,7 +341,7 @@ set<box> box::sample_points(unsigned const n) const {
 
 bool box::operator==(box const & b) const {
     assert(m_values.size() == b.m_values.size());
-    for (int i = 0; i < m_values.size(); i++) {
+    for (int i = 0; i < m_values.size(); ++i) {
         if (m_values[i] != b.m_values[i]) {
             return false;
         }
@@ -351,7 +351,7 @@ bool box::operator==(box const & b) const {
 
 bool box::operator<(box const & b) const {
     assert(m_values.size() == b.m_values.size());
-    for (int i = 0; i < m_values.size(); i++) {
+    for (int i = 0; i < m_values.size(); ++i) {
         if (m_values[i] < b.m_values[i]) {
             return true;
         }
@@ -361,7 +361,7 @@ bool box::operator<(box const & b) const {
 
 bool box::operator>(box const & b) const {
     assert(m_values.size() == b.m_values.size());
-    for (int i = 0; i < m_values.size(); i++) {
+    for (int i = 0; i < m_values.size(); ++i) {
         if (m_values[i] > b.m_values[i]) {
             return true;
         }
@@ -399,7 +399,7 @@ bool operator>=(ibex::Interval const & a, ibex::Interval const & b) {
 }
 
 void box::assign_to_enode() const {
-    for (unsigned i = 0; i < m_vars->size(); i++) {
+    for (unsigned i = 0; i < m_vars->size(); ++i) {
         (*m_vars)[i]->setValueLowerBound(m_values[i].lb());
         (*m_vars)[i]->setValueUpperBound(m_values[i].ub());
     }
@@ -454,7 +454,7 @@ ibex::Interval box::get_domain(int i) const {
 
 ibex::IntervalVector box::get_domains() const {
     ibex::IntervalVector dom(m_vars->size());
-    for (unsigned i = 0; i < m_vars->size(); i++) {
+    for (unsigned i = 0; i < m_vars->size(); ++i) {
         Enode const * const e = (*m_vars)[i];
         double const lb = e->getDomainLowerBound();
         double const ub = e->getDomainUpperBound();
