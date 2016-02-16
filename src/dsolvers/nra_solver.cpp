@@ -451,6 +451,8 @@ bool nra_solver::check(bool complete) {
         // Complete Check ==> Run ICP
         if (config.nra_simulation_thread) {
             m_box = simulation_icp::solve(m_box, m_ctc, m_lits, config);
+        } else if (config.nra_sat_icp) {
+            m_box = sat_icp::solve(m_box, m_ctc, config);
         } else if (config.nra_ncbt) {
             m_box = ncbt_icp::solve(m_box, m_ctc, config);
         } else if (config.nra_multiprune) {
