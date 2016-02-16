@@ -139,6 +139,7 @@ SMTConfig::initializeConfig( )
   nra_polytope                 = false;
   nra_simp                     = true;
   nra_ncbt                     = false;
+  nra_sat_icp                  = false;
   nra_local_opt                = false;
   nra_worklist_fp              = false;
   nra_shrink_for_dop           = false;
@@ -488,6 +489,9 @@ SMTConfig::parseCMDLine( int argc
             "use non-chronological backtracking in ICP loop",
             "--ncbt");
     opt.add("", false, 0, 0,
+            "use SAT+ICP Algorithm",
+            "--sat-icp");
+    opt.add("", false, 0, 0,
             "use local optimization to refine counter example (for exist-forall problems)",
             "--local-opt");
     opt.add("", false, 0, 0,
@@ -558,6 +562,7 @@ SMTConfig::parseCMDLine( int argc
     nra_polytope            = opt.isSet("--polytope");
     nra_simp                =!opt.isSet("--no-simp");
     nra_ncbt                = opt.isSet("--ncbt");
+    nra_sat_icp             = opt.isSet("--sat-icp");
     nra_local_opt           = opt.isSet("--local-opt");
     nra_worklist_fp         = opt.isSet("--worklist-fp");
     nra_shrink_for_dop      = opt.isSet("--shrink-for-opt");
