@@ -33,3 +33,7 @@ add_test(ibex_polytope_01 ${CMAKE_CURRENT_BINARY_DIR}/ibex_polytope_01)
 add_executable(ibex_newton_01 newton_01.cpp)
 target_link_libraries(ibex_newton_01 dreal ${EXTRA_LIBS})
 add_test(ibex_newton_01 ${CMAKE_CURRENT_BINARY_DIR}/ibex_newton_01)
+
+add_executable(ibex_diff diff.cpp)
+target_link_libraries(ibex_diff dreal ${EXTRA_LIBS})
+add_test(ibex_diff ${CMAKE_CURRENT_BINARY_DIR}/ibex_diff)
