@@ -38,14 +38,16 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include <utility>
 #include <vector>
 #include "constraint/constraint.h"
-#include "contractor/contractor_common.h"
 #include "contractor/contractor_basic.h"
+#include "contractor/contractor_common.h"
 #include "ibex/ibex.h"
 #include "opensmt/egraph/Enode.h"
 #include "util/box.h"
 #include "util/interruptible_thread.h"
+#include "util/interruptible_thread.h"
 #include "util/logging.h"
 #include "util/proof.h"
+#include "icp/clause_manager.h"
 
 using std::cerr;
 using std::cout;
@@ -145,6 +147,7 @@ contractor_try::contractor_try(contractor const & c)
     : contractor_cell(contractor_kind::TRY), m_c(c) {
     m_input = m_c.get_input();
 }
+
 void contractor_try::prune(contractor_status & cs) {
     DREAL_LOG_DEBUG << "contractor_try::prune: ";
     contractor_status old_cs(cs);
@@ -168,6 +171,7 @@ contractor_try_or::contractor_try_or(contractor const & c1, contractor const & c
     m_input = m_c1.get_input();
     m_input.union_with(m_c2.get_input());
 }
+
 void contractor_try_or::prune(contractor_status & cs) {
     DREAL_LOG_DEBUG << "contractor_try_or::prune";
     contractor_status old_cs(cs);
@@ -189,6 +193,7 @@ contractor_throw_if_empty::contractor_throw_if_empty(contractor const & c)
     : contractor_cell(contractor_kind::THROW_IF_EMPTY), m_c(c) {
     m_input = m_c.get_input();
 }
+
 void contractor_throw_if_empty::prune(contractor_status & cs) {
     DREAL_LOG_DEBUG << "contractor_throw_if_empty::prune";
     m_c.prune(cs);
@@ -206,6 +211,7 @@ contractor_join::contractor_join(contractor const & c1, contractor const & c2)
     m_input = m_c1.get_input();
     m_input.union_with(m_c2.get_input());
 }
+
 void contractor_join::prune(contractor_status & cs1) {
     DREAL_LOG_DEBUG << "contractor_join::prune";
     // duplicate cs1
@@ -226,6 +232,7 @@ contractor_ite::contractor_ite(function<bool(box const &)> guard, contractor con
     m_input = m_c_then.get_input();
     m_input.union_with(m_c_else.get_input());
 }
+
 void contractor_ite::prune(contractor_status & cs) {
     DREAL_LOG_DEBUG << "contractor_ite::prune";
     if (m_guard(cs.m_box)) {

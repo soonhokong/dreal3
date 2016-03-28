@@ -35,6 +35,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include "opensmt/smtsolvers/SMTConfig.h"
 #include "util/box.h"
 #include "util/ibex_interval_hash.h"
+#include "icp/clause_manager.h"
 
 namespace dreal {
 

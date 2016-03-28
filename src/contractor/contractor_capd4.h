@@ -142,7 +142,6 @@ private:
                             std::vector<std::pair<capd::interval, capd::IVector>> & enclosures,
                             bool const add_all = false);
 
-
 public:
     contractor_capd_full(box const & box, std::shared_ptr<ode_constraint> const ctr,
                          ode_direction const dir, SMTConfig const & config, double const timeout = 0.0);

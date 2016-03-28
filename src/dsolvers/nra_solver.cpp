@@ -326,8 +326,8 @@ void nra_solver::initialize_constraints(vector<Enode *> const & lits) {
         } else if (l->get_forall_vars().empty()) {
             nonlinear_lits.push_back(l);
         } else {
-            DREAL_LOG_FATAL << "nra_solver::initialize_constraints: No Patten";
-            throw runtime_error("nra_solver::initialize_constraints: No Patten");
+            DREAL_LOG_FATAL << "nra_solver::initialize_constraints: No Pattern";
+            throw runtime_error("nra_solver::initialize_constraints: No Pattern");
         }
     }
     initialize_ode_constraints(m_ctr_map, ints, invs);
