@@ -36,6 +36,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include "opensmt/egraph/Enode.h"
 #include "util/box.h"
 #include "util/hexfloat.h"
+#include "util/ibex_helper.h"
 #include "util/logging.h"
 
 using std::ceil;
@@ -71,6 +72,10 @@ box::box(vector<Enode *> const & vars)
         m_name_index_map = make_shared<unordered_map<string, int>>();
         constructFromVariables(*m_vars);
     }
+}
+
+box::box(box const & b, ibex::IntervalVector const & values)
+    : m_vars(b.m_vars), m_values(values), m_name_index_map(b.m_name_index_map), m_idx_last_branched(b.m_idx_last_branched) {
 }
 
 void box::constructFromVariables(vector<Enode *> const & vars) {
@@ -366,6 +371,9 @@ tuple<int, box, box> box::bisect_at(int const i) const {
 }
 
 double box::max_diam() const {
+    if (is_empty()) {
+        return 0.0;
+    }
     double max_diam = numeric_limits<double>::min();
     for (int i = 0; i < m_values.size(); ++i) {
         double current_diam = m_values[i].diam();
@@ -532,5 +540,9 @@ ibex::IntervalVector box::get_domains() const {
         dom[i] = ibex::Interval(lb, ub);
     }
     return dom;
+}
+
+void box::relax(int const i, ibex::Interval const & intv) {
+    m_values[i] = intv;
 }
 }  // namespace dreal
