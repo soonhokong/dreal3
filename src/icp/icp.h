@@ -21,12 +21,13 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 
 #include <random>
 #include <vector>
+#include "contractor/contractor.h"
 #include "icp/brancher.h"
+#include "icp/sat_icp.h"
+#include "opensmt/smtsolvers/SMTConfig.h"
 #include "util/box.h"
 #include "util/scoped_vec.h"
 #include "util/stat.h"
-#include "contractor/contractor.h"
-#include "opensmt/smtsolvers/SMTConfig.h"
 
 namespace dreal {
 void output_solution(box const & b, SMTConfig & config, unsigned i = 0);
