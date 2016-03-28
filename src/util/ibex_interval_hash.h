@@ -65,5 +65,28 @@ struct equal_to<std::vector<ibex::Interval>> {
         return true;
     }
 };
-
+template<>
+struct hash<ibex::IntervalVector> {
+    size_t operator () (const ibex::IntervalVector & v) const {
+        size_t seed = 23;
+        for (int i = 0; i < v.size(); ++i) {
+            dreal::hash_combine<ibex::Interval>(seed, v[i]);
+        }
+        return seed;
+    }
+};
+template<>
+struct equal_to<ibex::IntervalVector> {
+    bool operator() (const ibex::IntervalVector & v1, const ibex::IntervalVector & v2) const {
+        if (v1.size() != v2.size()) {
+            return false;
+        }
+        for (int i = 0; i < v1.size(); ++i) {
+            if (v1[i] != v2[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
 }  // namespace std
