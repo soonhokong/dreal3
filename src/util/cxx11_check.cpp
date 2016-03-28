@@ -19,6 +19,8 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 
 #include "contractor/contractor.h"
 #include "util/box.h"
+#include "icp/gbox.h"
+#include "icp/reduced_box_set.h"
 #include "util/cxx11_check.h"
 #include "util/static_warning.h"
 
@@ -32,6 +34,10 @@ void check_nothrow_move_constructible() {
                    "class ibex::Interval is not nothrow-move-constructible.");
     STATIC_WARNING(std::is_nothrow_move_constructible<box>::value,
                    "class dreal::box is not nothrow-move-constructible.");
+    STATIC_WARNING(std::is_nothrow_move_constructible<gbox>::value,
+                   "class dreal::gbox is not move-constructible.");
+    STATIC_WARNING(std::is_nothrow_move_constructible<reduced_box_set>::value,
+                   "class dreal::reduced_box_set is not move-constructible.");
     STATIC_WARNING(std::is_nothrow_move_constructible<contractor>::value,
                    "class dreal::contractor is not nothrow-move-constructible.");
     STATIC_WARNING(std::is_nothrow_move_constructible<capd::interval>::value,
