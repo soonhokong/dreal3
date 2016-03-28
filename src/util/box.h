@@ -32,6 +32,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include "json/json.hpp"
 #include "opensmt/egraph/Enode.h"
 #include "util/hash_combine.h"
+#include "util/ibex_interval_hash.h"
 
 namespace dreal {
 
@@ -52,6 +53,7 @@ private:
 public:
     explicit box(std::vector<Enode *> const & vars);
     box(box const & b, std::unordered_set<Enode *> const & extra_vars);
+    box(box const & b, ibex::IntervalVector const & values);
     void constructFromLiterals(std::vector<Enode *> const & lit_vec);
 
     std::tuple<int, box, box> bisect(double precision) const;
@@ -64,7 +66,9 @@ public:
     bool is_empty() const { return size() == 0 || m_values.is_empty(); }
     ibex::IntervalVector & get_values() { return m_values; }
     ibex::IntervalVector const & get_values() const { return m_values; }
+    void set_values(ibex::IntervalVector const & values) { m_values = values; }
     ibex::IntervalVector get_domains() const;
+    Enode * get_var(int i) const { return (*m_vars)[i]; }
     std::vector<Enode *> const & get_vars() const { return *m_vars; }
     unsigned size() const { return m_vars ? (m_vars->size()) : 0; }
     void set_empty() { m_values.set_empty(); }
@@ -119,6 +123,21 @@ public:
     bool is_superset(box const & b) const {
         return m_values.is_superset(b.m_values);
     }
+    bool is_strict_overlap(box const & b) const {
+        if (is_empty() || b.is_empty()) {
+            return false;
+        }
+        for (unsigned i = 0; i < size(); ++i) {
+            if (!m_values[i].overlaps(b.m_values[i])) {
+                return false;
+            } else {
+                // std::cerr << m_values[i] << " and "
+                //           << b.m_values[i] << " overlaps."
+                //           << std::endl;
+            }
+        }
+        return true;
+    }
 
     bool operator==(box const & b) const;
     bool operator<(box const & b) const;
@@ -154,6 +173,7 @@ public:
     nlohmann::json to_JSON() const;
 
     void assign_to_enode() const;
+    void relax(int const i, ibex::Interval const & intv);
 };
 
 bool operator<(ibex::Interval const & a, ibex::Interval const & b);
