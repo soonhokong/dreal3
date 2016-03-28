@@ -14,6 +14,7 @@ SET(DREAL_SRCS ${DREAL_SRCS}
   ${CMAKE_CURRENT_LIST_DIR}/fp.cpp
   ${CMAKE_CURRENT_LIST_DIR}/hexfloat.cpp
   ${CMAKE_CURRENT_LIST_DIR}/ibex_enode.cpp
+  ${CMAKE_CURRENT_LIST_DIR}/ibex_helper.cpp
   ${CMAKE_CURRENT_LIST_DIR}/proof.cpp
   ${CMAKE_CURRENT_LIST_DIR}/stat.cpp
   ${CMAKE_CURRENT_LIST_DIR}/string.cpp
