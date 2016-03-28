@@ -141,7 +141,7 @@ class Heap {
     {
         for (int i = 0; i < heap.size(); i++)
             indices[heap[i]] = -1;
-#ifdef NDEBUG
+#ifndef NDEBUG
         for (int i = 0; i < indices.size(); i++)
             assert(indices[i] == -1);
 #endif
