@@ -48,7 +48,7 @@ private:
 public:
     explicit contractor_pseq(std::initializer_list<contractor> const & l);
     explicit contractor_pseq(std::vector<contractor> const & v);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 contractor mk_contractor_pseq(std::initializer_list<contractor> const & l);

@@ -93,7 +93,7 @@ contractor_parallel_any::contractor_parallel_any(contractor const & c1, contract
 
 #define PARALLEL_LOG DREAL_LOG_DEBUG
 
-void contractor_parallel_any::prune(box & b, SMTConfig & config) {
+void contractor_parallel_any::prune(box & b, SMTConfig & config, clause_manager * const) {
     DREAL_LOG_DEBUG << "contractor_parallel_any::prune";
     PARALLEL_LOG << "-------------------------------------------------------------";
     // TODO(soonhok): implement this

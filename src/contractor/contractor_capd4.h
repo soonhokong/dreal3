@@ -86,7 +86,7 @@ private:
 
 public:
     contractor_capd_simple(box const & box, std::shared_ptr<ode_constraint> const ctr, ode_direction const dir);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -107,7 +107,7 @@ private:
 
 public:
     contractor_capd_point(box const & box, std::shared_ptr<ode_constraint> const ctr, contractor const & eval_ctc, ode_direction const dir, unsigned const taylor_order, double const timeout = 0.0);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -127,25 +127,25 @@ private:
     std::unique_ptr<capd::ITimeMap> m_timeMap;
 
     bool inner_loop(capd::IOdeSolver & solver, capd::interval const & prevTime, capd::interval const T, std::vector<std::pair<capd::interval, capd::IVector>> & enclosures) const;
-    bool check_invariant(capd::IVector const & v, box b, SMTConfig & config);
+    bool check_invariant(capd::IVector const & v, box b, SMTConfig & config, clause_manager * const cm_ptr);
     template<typename Rect2Set>
-    bool check_invariant(Rect2Set const & s, box const & b, SMTConfig & config) {
+    bool check_invariant(Rect2Set const & s, box const & b, SMTConfig & config, clause_manager * const cm_ptr) {
         thread_local static capd::IVector v;
         v = s;
-        return check_invariant(v, b, config);
+        return check_invariant(v, b, config, cm_ptr);
     }
     bool compute_enclosures(capd::interval const & prevTime,
                             capd::interval const T,
                             box const & b,
                             std::vector<std::pair<capd::interval, capd::IVector>> & enclosures,
                             SMTConfig & config,
+                            clause_manager * const cm_ptr,
                             bool const add_all = false);
-
 
 public:
     contractor_capd_full(box const & box, std::shared_ptr<ode_constraint> const ctr, ode_direction const dir, unsigned const taylor_order, unsigned const grid_size, double const timeout = 0.0);
-    void prune(box & b, SMTConfig & config);
-    nlohmann::json generate_trace(box b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
+    nlohmann::json generate_trace(box b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 

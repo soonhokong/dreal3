@@ -117,7 +117,7 @@ void contractor_pseq::init() {
     m_use_threads = true;
 }
 
-void contractor_pseq::prune(box & b, SMTConfig & config) {
+void contractor_pseq::prune(box & b, SMTConfig & config, clause_manager * const cm_ptr) {
     m_input  = ibex::BitSet::empty(b.size());
     m_output = ibex::BitSet::empty(b.size());
     m_used_constraints.clear();
@@ -130,7 +130,7 @@ void contractor_pseq::prune(box & b, SMTConfig & config) {
         for (unsigned i = 0; i < num_iter; i++) {
             // interruption_point();
             old_box = b;
-            m_ctc.prune(b, config);
+            m_ctc.prune(b, config, cm_ptr);
             m_input.union_with(m_ctc.input());
             m_output.union_with(m_ctc.output());
             unordered_set<shared_ptr<constraint>> const & used_ctrs = m_ctc.used_constraints();
@@ -148,7 +148,7 @@ void contractor_pseq::prune(box & b, SMTConfig & config) {
         return;
     } else {
         // use single thread
-        m_ctc.prune(b, config);
+        m_ctc.prune(b, config, cm_ptr);
         m_input.union_with(m_ctc.input());
         m_output.union_with(m_ctc.output());
         unordered_set<shared_ptr<constraint>> const & used_ctrs = m_ctc.used_constraints();

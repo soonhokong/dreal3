@@ -37,18 +37,19 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include <utility>
 #include <vector>
 
-#include "nlopt.hpp"
+#include "constraint/constraint.h"
 #include "contractor/contractor_generic_forall.h"
 #include "ibex/ibex.h"
+#include "icp/clause_manager.h"
 #include "icp/icp.h"
+#include "nlopt.hpp"
 #include "opensmt/egraph/Enode.h"
 #include "util/box.h"
-#include "constraint/constraint.h"
-#include "util/logging.h"
-#include "util/string.h"
-#include "util/proof.h"
 #include "util/eval.h"
+#include "util/logging.h"
+#include "util/proof.h"
 #include "util/strategy.h"
+#include "util/string.h"
 
 using std::back_inserter;
 using std::boolalpha;
@@ -94,20 +95,20 @@ contractor_generic_forall::contractor_generic_forall(box const & b, shared_ptr<g
     }
 }
 
-void contractor_generic_forall::handle(box & b, Enode * body, bool const p,  SMTConfig & config) {
+void contractor_generic_forall::handle(box & b, Enode * body, bool const p,  SMTConfig & config, clause_manager * const cm_ptr) {
     if (body->isOr()) {
         vector<Enode *> vec = elist_to_vector(body->getCdr());
-        handle_disjunction(b, vec, p, config);
+        handle_disjunction(b, vec, p, config, cm_ptr);
         return;
     } else if (body->isAnd()) {
         vector<Enode *> vec = elist_to_vector(body->getCdr());
-        handle_conjunction(b, vec, p, config);
+        handle_conjunction(b, vec, p, config, cm_ptr);
         return;
     } else if (body->isNot()) {
-        handle(b, body->get1st(), !p, config);
+        handle(b, body->get1st(), !p, config, cm_ptr);
         return;
     } else {
-        handle_atomic(b, body, p, config);
+        handle_atomic(b, body, p, config, cm_ptr);
         return;
     }
 }
@@ -360,7 +361,7 @@ box shrink_for_dop(box b) {
     return b;
 }
 
-box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) {
+box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config, clause_manager * const) {
     box counterexample(b, forall_vars);
     if (config.nra_shrink_for_dop) {
         counterexample = shrink_for_dop(counterexample);
@@ -401,7 +402,7 @@ box find_CE_via_underapprox(box const & b, unordered_set<Enode*> const & forall_
     return counterexample;
 }
 
-box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) {
+box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config, clause_manager * const) {
     vector<contractor> ctcs;
     box counterexample(b, forall_vars);
     if (config.nra_shrink_for_dop) {
@@ -424,16 +425,16 @@ box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_v
     return counterexample;
 }
 
-box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config) const {
+box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config, clause_manager * const cm_ptr) const {
     // static unsigned under_approx = 0;
     // static unsigned over_approx = 0;
-    box counterexample = find_CE_via_underapprox(b, forall_vars, vec, p, config);
+    box counterexample = find_CE_via_underapprox(b, forall_vars, vec, p, config, cm_ptr);
     if (!counterexample.is_empty()) {
         // ++under_approx;
         // cerr << "WE USE UNDERAPPROX: " << under_approx << "/" << over_approx<< "/" << (under_approx + over_approx) << endl;
         // cerr << counterexample << endl;
     } else {
-        counterexample = find_CE_via_overapprox(b, forall_vars, vec, p, config);
+        counterexample = find_CE_via_overapprox(b, forall_vars, vec, p, config, cm_ptr);
         // ++over_approx;
         // cerr << "WE USE FULL       : " << under_approx << "/" << over_approx << "/" << (under_approx + over_approx)
         //      << " " << counterexample.is_empty() << endl
@@ -445,7 +446,7 @@ box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> cons
     return counterexample;
 }
 
-void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> const &vec, bool const p, SMTConfig & config) {
+void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> const &vec, bool const p, SMTConfig & config, clause_manager * const cm_ptr) {
     DREAL_LOG_DEBUG << "contractor_generic_forall::handle_disjunction" << endl;
     unordered_set<Enode *> forall_vars;
     for (Enode * e : vec) {
@@ -462,7 +463,7 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
         //         Make a fixed_point contractor with ctc_is.
         //         Pass it to icp::solve
 
-        box counterexample = find_CE(b, forall_vars, vec, p, config);
+        box counterexample = find_CE(b, forall_vars, vec, p, config, cm_ptr);
         if (counterexample.is_empty()) {
             // Step 2.1. (NO Counterexample)
             //           Return B.
@@ -504,7 +505,7 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
             } else {
                 contractor ctc = mk_contractor_ibex_fwdbwd(ctr);
                 box bt(b);
-                ctc.prune(bt, config);
+                ctc.prune(bt, config, cm_ptr);
                 m_output.union_with(ctc.output());
                 unordered_set<shared_ptr<constraint>> const & used_ctrs = ctc.used_constraints();
                 m_used_constraints.insert(used_ctrs.begin(), used_ctrs.end());
@@ -516,29 +517,29 @@ void contractor_generic_forall::handle_disjunction(box & b, vector<Enode *> cons
     return;
 }
 
-void contractor_generic_forall::handle_conjunction(box & b, vector<Enode *> const & vec, bool const p, SMTConfig & config) {
+void contractor_generic_forall::handle_conjunction(box & b, vector<Enode *> const & vec, bool const p, SMTConfig & config, clause_manager * const cm_ptr) {
     DREAL_LOG_DEBUG << "contractor_generic_forall::handle_conjunction" << endl;
     for (Enode * e : vec) {
         DREAL_LOG_DEBUG << "process conjunction element : " << e << endl;
-        handle(b, e, p, config);
+        handle(b, e, p, config, cm_ptr);
         if (b.is_empty()) {
             return;
         }
     }
     return;
 }
-void contractor_generic_forall::handle_atomic(box & b, Enode * body, bool const p, SMTConfig & config) {
+void contractor_generic_forall::handle_atomic(box & b, Enode * body, bool const p, SMTConfig & config, clause_manager * const cm_ptr) {
     vector<Enode*> vec;
     vec.push_back(body);
-    handle_disjunction(b, vec, p, config);
+    handle_disjunction(b, vec, p, config, cm_ptr);
     return;
 }
 
-void contractor_generic_forall::prune(box & b, SMTConfig & config) {
+void contractor_generic_forall::prune(box & b, SMTConfig & config, clause_manager * const cm_ptr) {
     DREAL_LOG_DEBUG << "contractor_generic_forall prune: " << *m_ctr << endl;
     Enode * body = m_ctr->get_body();
     DREAL_LOG_DEBUG << "body = " << body << endl;
-    handle(b, body, true, config);
+    handle(b, body, true, config, cm_ptr);
     return;
 }
 

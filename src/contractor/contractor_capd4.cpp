@@ -381,7 +381,7 @@ void update_box_with_dvector(box & b, vector<Enode *> const & vars, capd::DVecto
 
 // Prune v using inv_ctc. box b is needed to use inv_ctc.
 // Retrun false if invariant is violated.
-bool contractor_capd_full::check_invariant(capd::IVector const & v, box b, SMTConfig & config) {
+bool contractor_capd_full::check_invariant(capd::IVector const & v, box b, SMTConfig & config, clause_manager * const cm_ptr) {
     // 1. convert v into a box using b.
     update_box_with_ivector(b, m_vars_t, v);
     // 2. check the converted box b, with inv_ctc contractor
@@ -390,7 +390,7 @@ bool contractor_capd_full::check_invariant(capd::IVector const & v, box b, SMTCo
         shared_ptr<forallt_constraint> inv = invs[i];
         Enode * inv_e = inv->get_enodes()[0];
         if (inv_e->hasPolarity() && inv_e->getPolarity() == l_True) {
-            m_inv_ctcs[i].prune(b, config);
+            m_inv_ctcs[i].prune(b, config, cm_ptr);
             if (b.is_empty()) {
                 return false;
             }
@@ -407,6 +407,7 @@ bool contractor_capd_full::compute_enclosures(capd::interval const & prevTime,
                                               box const & b,
                                               vector<pair<capd::interval, capd::IVector>> & enclosures,
                                               SMTConfig & config,
+                                              clause_manager * const cm_ptr,
                                               bool const add_all) {
     auto const stepMade = m_solver->getStep();
     auto const & curve = m_solver->getCurve();
@@ -435,7 +436,7 @@ bool contractor_capd_full::compute_enclosures(capd::interval const & prevTime,
             // 5. [  X ]
             capd::IVector v = curve(subsetOfDomain);
             DREAL_LOG_INFO << "compute_enclosures:" << dt << "\t" << v;
-            if (!m_need_to_check_inv || check_invariant(v, b, config)) {
+            if (!m_need_to_check_inv || check_invariant(v, b, config, cm_ptr)) {
                 enclosures.emplace_back(dt, v);
             } else {
                 if (config.nra_ODE_show_progress) {
@@ -592,7 +593,7 @@ contractor_capd_simple::contractor_capd_simple(box const & /* box */, shared_ptr
     assert(m_ctr);
 }
 
-void contractor_capd_simple::prune(box &, SMTConfig &) {
+void contractor_capd_simple::prune(box &, SMTConfig &, clause_manager * const) {
     if (m_dir == ode_direction::FWD) {
         // TODO(soonhok): implement this
     } else {
@@ -685,7 +686,7 @@ contractor_capd_full::contractor_capd_full(box const & box, shared_ptr<ode_const
     m_output = ibex::BitSet::empty(box.size());
 }
 
-void contractor_capd_full::prune(box & b, SMTConfig & config) {
+void contractor_capd_full::prune(box & b, SMTConfig & config, clause_manager * const cm_ptr) {
     auto const start_time = steady_clock::now();
     thread_local static box old_box(b);
     old_box = b;
@@ -768,7 +769,7 @@ void contractor_capd_full::prune(box & b, SMTConfig & config) {
                 }
             }
             // Invariant Check
-            if (m_need_to_check_inv && !check_invariant(s, b, config)) {
+            if (m_need_to_check_inv && !check_invariant(s, b, config, cm_ptr)) {
                 if (config.nra_ODE_show_progress) {
                     cout << " [INVARIANT VIOLATED] ";
                 }
@@ -783,7 +784,7 @@ void contractor_capd_full::prune(box & b, SMTConfig & config) {
             if (T.leftBound() <= m_timeMap->getCurrentTime().rightBound()) {
                 //                     [     T      ]
                 // [     current Time     ]
-                bool invariantSatisfied = compute_enclosures(prevTime, T,  b, enclosures, config);
+                bool invariantSatisfied = compute_enclosures(prevTime, T,  b, enclosures, config, cm_ptr);
                 if (!invariantSatisfied) {
                     DREAL_LOG_INFO << "contractor_capd_full::prune - invariant violated";
                     break;
@@ -894,7 +895,7 @@ json generate_trace_core(integral_constraint const & ic,
     return ret;
 }
 
-json contractor_capd_full::generate_trace(box b, SMTConfig & config) {
+json contractor_capd_full::generate_trace(box b, SMTConfig & config, clause_manager * const cm_ptr) {
     integral_constraint const & ic = m_ctr->get_ic();
     b = intersect_params(b, ic);
     if (!m_solver) {
@@ -925,7 +926,7 @@ json contractor_capd_full::generate_trace(box b, SMTConfig & config) {
             if (contain_nan(s)) {
                 DREAL_LOG_INFO << "contractor_capd_full::generate_trace - contain NaN";
             }
-            bool invariantSatisfied = compute_enclosures(prevTime, T, b, enclosures, config, true);
+            bool invariantSatisfied = compute_enclosures(prevTime, T, b, enclosures, config, cm_ptr, true);
             if (!invariantSatisfied) {
                 DREAL_LOG_INFO << "contractor_capd_full::generate_trace - invariant violated";
                 break;
@@ -994,7 +995,7 @@ contractor_capd_point::contractor_capd_point(box const & box, shared_ptr<ode_con
     // Output: Empty
     m_output = ibex::BitSet::empty(box.size());
 }
-void contractor_capd_point::prune(box & b, SMTConfig & config) {
+void contractor_capd_point::prune(box & b, SMTConfig & config, clause_manager * const cm_ptr) {
     auto const start_time = steady_clock::now();
     thread_local static box old_box(b);
     old_box = b;
@@ -1117,7 +1118,7 @@ void contractor_capd_point::prune(box & b, SMTConfig & config) {
                     update_box_with_dvector(b, m_vars_t, X);
                     b[ic.get_time_t()] = current_time;
 
-                    m_eval_ctc.prune(b, config);
+                    m_eval_ctc.prune(b, config, cm_ptr);
                     if (!b.is_empty()) {
                         DREAL_LOG_INFO << "This box satisfies other non-linear constraints";
                         return;

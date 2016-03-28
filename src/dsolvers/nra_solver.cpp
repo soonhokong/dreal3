@@ -333,8 +333,8 @@ void nra_solver::initialize_constraints(vector<Enode *> const & lits) {
         } else if (l->get_forall_vars().empty()) {
             nonlinear_lits.push_back(l);
         } else {
-            DREAL_LOG_FATAL << "nra_solver::initialize_constraints: No Patten";
-            throw runtime_error("nra_solver::initialize_constraints: No Patten");
+            DREAL_LOG_FATAL << "nra_solver::initialize_constraints: No Pattern";
+            throw runtime_error("nra_solver::initialize_constraints: No Pattern");
         }
     }
     initialize_ode_constraints(m_ctr_map, ints, invs);
@@ -346,7 +346,6 @@ void nra_solver::initialize(vector<Enode *> const & lits) {
     initialize_constraints(lits);
     m_need_init = false;
 }
-
 
 // Saves a backtrack point You are supposed to keep track of the
 // operations, for instance in a vector called "undo_stack_term", as
@@ -392,7 +391,7 @@ void nra_solver::handle_sat_case(box const & b) const {
             for (shared_ptr<constraint> const ctr : m_stack) {
                 if (ctr->get_type() == constraint_type::ODE) {
                     contractor_capd_full fwd_full(b, dynamic_pointer_cast<ode_constraint>(ctr), ode_direction::FWD, config.nra_ODE_taylor_order, config.nra_ODE_grid_size);
-                    json trace = fwd_full.generate_trace(b, config);
+                    json trace = fwd_full.generate_trace(b, config, nullptr);
                     traces.push_back(trace);
                 }
             }

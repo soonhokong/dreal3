@@ -27,11 +27,13 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include <string>
 #include <memory>
 #include <utility>
+#include <unordered_set>
 #include "./config.h"
 #include "opensmt/egraph/Enode.h"
 #include "opensmt/smtsolvers/SMTConfig.h"
 #include "util/box.h"
 #include "constraint/constraint.h"
+#include "icp/clause_manager.h"
 
 namespace dreal {
 enum class contractor_kind { ID, SEQ, OR, ITE, FP,
@@ -91,7 +93,7 @@ public:
         m_used_constraints = ctrs;
     }
 
-    virtual void prune(box & b, SMTConfig & config) = 0;
+    virtual void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr = nullptr) = 0;
     virtual std::ostream & display(std::ostream & out) const = 0;
 };
 
@@ -133,15 +135,8 @@ public:
         return m_ptr->set_used_constraints(ctrs);
     }
 
-    inline void prune(box & b, SMTConfig & config) {
-        if (m_ptr) {
-            // by default, clear output vector and used constraints.
-            m_ptr->clear_output();
-            m_ptr->clear_used_constraints();
-            m_ptr->prune(b, config);
-        }
-    }
-    void prune_with_assert(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr = nullptr);
+    void prune_with_assert(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     inline bool operator==(contractor const & c) const { return m_ptr == c.m_ptr; }
     inline bool operator<(contractor const & c) const { return m_ptr < c.m_ptr; }
     std::size_t hash() const { return (std::size_t) m_ptr.get(); }

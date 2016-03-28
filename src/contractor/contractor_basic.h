@@ -35,6 +35,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #include "opensmt/smtsolvers/SMTConfig.h"
 #include "util/box.h"
 #include "util/ibex_interval_hash.h"
+#include "icp/clause_manager.h"
 
 namespace dreal {
 
@@ -43,7 +44,7 @@ class contractor_id : public contractor_cell {
 private:
 public:
     contractor_id();
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -53,7 +54,7 @@ private:
     std::string m_msg;
 public:
     explicit contractor_debug(std::string const & s);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -66,8 +67,8 @@ public:
     explicit contractor_seq(std::initializer_list<contractor> const & l);
     explicit contractor_seq(std::vector<contractor> const & v);
     contractor_seq(contractor const & c1, contractor const & c2);
-    void prune(box & b, SMTConfig & config);
-    void prune_naive(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
+    void prune_naive(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -77,7 +78,7 @@ private:
     contractor m_c;
 public:
     explicit contractor_try(contractor const & c);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -88,7 +89,7 @@ private:
     contractor m_c2;
 public:
     contractor_try_or(contractor const & c1, contractor const & c2);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -96,7 +97,7 @@ public:
 class contractor_throw : public contractor_cell {
 public:
     contractor_throw() : contractor_cell(contractor_kind::THROW, 1) { }
-    void prune(box &, SMTConfig &) {
+    void prune(box &, SMTConfig &, clause_manager * const) {
         throw contractor_exception("contractor_throw");
     }
     std::ostream & display(std::ostream & out) const {
@@ -109,7 +110,7 @@ public:
 class contractor_empty : public contractor_cell {
 public:
     contractor_empty() : contractor_cell(contractor_kind::EMPTY) { }
-    void prune(box & b, SMTConfig &) {
+    void prune(box & b, SMTConfig &, clause_manager * const) {
         b.set_empty();
     }
     std::ostream & display(std::ostream & out) const {
@@ -124,7 +125,7 @@ private:
     contractor m_c;
 public:
     explicit contractor_throw_if_empty(contractor const & c);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -135,7 +136,7 @@ private:
     contractor m_c2;
 public:
     contractor_join(contractor const & c1, contractor const & c2);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -147,7 +148,7 @@ private:
     contractor m_c_else;
 public:
     contractor_ite(std::function<bool(box const &)> guard, contractor const & c_then, contractor const & c_else);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -160,9 +161,9 @@ private:
     void init();
 
     // Naive fixedpoint algorithm
-    void naive_fixpoint_alg(box & b, SMTConfig & config);
+    void naive_fixpoint_alg(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     // Worklist fixedpoint algorithm
-    void worklist_fixpoint_alg(box & b, SMTConfig & config);
+    void worklist_fixpoint_alg(box & b, SMTConfig & config, clause_manager * const cm_ptr);
 
 public:
     contractor_fixpoint(std::function<bool(box const &, box const &)> term_cond, contractor const & c);
@@ -176,14 +177,14 @@ public:
                         std::vector<contractor> const & cvec1, std::vector<contractor> const & cvec2,
                         std::vector<contractor> const & cvec3, std::vector<contractor> const & cvec4);
     contractor_fixpoint(std::function<bool(box const &, box const &)> term_cond, std::initializer_list<std::vector<contractor>> const & cvec_list);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
 class contractor_int : public contractor_cell {
 public:
     explicit contractor_int(box const & b);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -192,7 +193,7 @@ private:
     std::shared_ptr<nonlinear_constraint> const m_nl_ctr;
 public:
     explicit contractor_eval(std::shared_ptr<nonlinear_constraint> const ctr);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -210,7 +211,7 @@ private:
 public:
     explicit contractor_cache(contractor const & ctc);
     ~contractor_cache();
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -220,7 +221,7 @@ private:
     std::vector<std::shared_ptr<constraint>> m_ctrs;
 public:
     contractor_sample(box const & b, unsigned const n, std::vector<std::shared_ptr<constraint>> const & ctrs);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
@@ -230,7 +231,7 @@ private:
     std::vector<std::shared_ptr<constraint>> m_ctrs;
 public:
     contractor_aggressive(unsigned const n, std::vector<std::shared_ptr<constraint>> const & ctrs);
-    void prune(box & b, SMTConfig & config);
+    void prune(box & b, SMTConfig & config, clause_manager * const cm_ptr);
     std::ostream & display(std::ostream & out) const;
 };
 
