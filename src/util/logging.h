@@ -1,9 +1,8 @@
 /*********************************************************************
 Author: Soonho Kong <soonhok@cs.cmu.edu>
         Sicun Gao <sicung@cs.cmu.edu>
-        
 
-dReal -- Copyright (C) 2013 - 2015, the dReal Team
+dReal -- Copyright (C) 2013 - 2016, the dReal Team
 
 dReal is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -33,6 +32,7 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 #define ELPP_CUSTOM_COUT std::cerr
 #define ELPP_NO_DEFAULT_LOG_FILE
 #define ELPP_DISABLE_DEFAULT_CRASH_HANDLING
+#define ELPP_STL_LOGGING
 #define ELPP_THREAD_SAFE
 #include <easylogingpp/easylogging++.h>
 #include <iosfwd>
