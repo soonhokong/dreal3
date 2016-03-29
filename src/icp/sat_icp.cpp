@@ -32,12 +32,10 @@ along with dReal. If not, see <http://www.gnu.org/licenses/>.
 
 using std::cerr;
 using std::cout;
-using std::dynamic_pointer_cast;
 using std::endl;
 using std::get;
 using std::map;
 using std::numeric_limits;
-using std::random_device;
 using std::tuple;
 using std::unordered_set;
 using std::vector;
