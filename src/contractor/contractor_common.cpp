@@ -96,35 +96,42 @@ box generalize_box(box b, box const & init_box, unordered_set<Enode *> const & u
 }
 
 // TODO(soonhok): need to fix the following to use the new framework
-void contractor::prune(box & b, SMTConfig & config, clause_manager * const cm_ptr) {
+void contractor::prune(contractor_status & cs) {
     if (m_ptr) {
         // by default, clear output vector and used constraints.
-        m_ptr->clear_output();
-        m_ptr->clear_used_constraints();
-        if (cm_ptr) {
-            box old_b(b);
-            m_ptr->prune(b, config, cm_ptr);
-            if (b.is_empty()) {
-                bool const generalize = true;
-                if (generalize) {
-                    cm_ptr->add_conflict(old_b, m_ptr->used_constraints());
-                } else {
-                    cm_ptr->add_conflict(old_b);
-                }
-            } else {
-                if (old_b == b) { return; }
-                bool const generalize = true;
-                if (generalize) {
-                    cm_ptr->add_imply(old_b, b, m_ptr->used_constraints());
-                } else {
-                    cm_ptr->add_imply(old_b, b);
-                }
-            }
-        } else {
-            m_ptr->prune(b, config, cm_ptr);
-        }
+        m_ptr->prune(cs);
     }
 }
+
+// void contractor::prune(box & b, SMTConfig & config, clause_manager * const cm_ptr) {
+//     if (m_ptr) {
+//         // by default, clear output vector and used constraints.
+//         m_ptr->clear_output();
+//         m_ptr->clear_used_constraints();
+//         if (cm_ptr) {
+//             box old_b(b);
+//             m_ptr->prune(b, config, cm_ptr);
+//             if (b.is_empty()) {
+//                 bool const generalize = true;
+//                 if (generalize) {
+//                     cm_ptr->add_conflict(old_b, m_ptr->used_constraints());
+//                 } else {
+//                     cm_ptr->add_conflict(old_b);
+//                 }
+//             } else {
+//                 if (old_b == b) { return; }
+//                 bool const generalize = true;
+//                 if (generalize) {
+//                     cm_ptr->add_imply(old_b, b, m_ptr->used_constraints());
+//                 } else {
+//                     cm_ptr->add_imply(old_b, b);
+//                 }
+//             }
+//         } else {
+//             m_ptr->prune(b, config, cm_ptr);
+//         }
+//     }
+// }
 
 void contractor::prune_with_assert(contractor_status & cs) {
     assert(m_ptr != nullptr);

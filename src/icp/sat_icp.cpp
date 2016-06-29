@@ -41,48 +41,46 @@ using std::unordered_set;
 using std::vector;
 
 namespace dreal {
-box sat_icp::solve(box b, contractor & ctc, SMTConfig & config) {
+void sat_icp::solve(contractor & ctc, contractor_status & cs) {
     DREAL_LOG_FATAL << "INITIAL BOX" << endl
-                    << b;
+                    << cs.m_box;
     thread_local static std::unordered_set<std::shared_ptr<constraint>> used_constraints;
     used_constraints.clear();
-    clause_manager cm(b);
-    box old_b(b);
+
+    // TODO(soonhok): need to add clause_manager inside of contractor_status
+    clause_manager cm(cs.m_box);
+    box old_b(cs.m_box);
     while (cm.check_next_box()) {
-        b = cm.get_next_box();
-        assert(!b.is_empty());
+        cs.m_box = cm.get_next_box();
+        assert(!cs.m_box.is_empty());
         while (true) {
             // Pruning -- Begin
             try {
-                old_b = b;
-                ctc.prune(b, config, &cm);
-                if (config.nra_use_stat) { config.nra_stat.increase_prune(); }
-                used_constraints.insert(ctc.used_constraints().begin(), ctc.used_constraints().end());
+                old_b = cs.m_box;
+                ctc.prune(cs);
+                if (cs.m_config.nra_use_stat) { cs.m_config.nra_stat.increase_prune(); }
             } catch (contractor_exception & e) { /* do nothing */ }
             // Pruning -- End
-            if (b.is_empty()) {
+            if (cs.m_box.is_empty()) {
                 break;  // exit inner while-loop
             }
             // Branch
-            tuple<int, box, box> const splits = b.bisect(config.nra_precision);
+            tuple<int, box, box> const splits = cs.m_box.bisect(cs.m_config.nra_precision);
             int const i = get<0>(splits);  // branched at i-th dim
             if (i >= 0) {
-                if (config.nra_use_stat) { config.nra_stat.increase_branch(); }
+                if (cs.m_config.nra_use_stat) { cs.m_config.nra_stat.increase_branch(); }
                 box const & b1 = get<1>(splits);
                 box const & b2 = get<2>(splits);
-                cm.add_branch(b, b1, b2);
-                b = b1;
+                cm.add_branch(cs.m_box, b1, b2);
+                cs.m_box = b1;
             } else {
                 // i < 0, which indicates it's not possible to bisect.
-                DREAL_LOG_FATAL << "SAT-ICP: return delta-sat (|b| = " << b.max_diam() << ")";
-                ctc.set_used_constraints(used_constraints);
-                return b;
+                DREAL_LOG_FATAL << "SAT-ICP: return delta-sat (|b| = " << cs.m_box.max_diam() << ")";
+                return;
             }
         }  // while(true)
     }  // while(cm.check_next_box())
-    b.set_empty();
-    ctc.set_used_constraints(used_constraints);
+    cs.m_box.set_empty();
     DREAL_LOG_FATAL << "SAT-ICP: return unsat";
-    return b;
 }
 }  // namespace dreal

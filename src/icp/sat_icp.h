@@ -30,7 +30,7 @@ namespace dreal {
 
 class sat_icp {
 public:
-    static box solve(box b, contractor & ctc, SMTConfig & config);
+    static void solve(contractor & ctc, contractor_status & cs);
 };
 
 }  // namespace dreal

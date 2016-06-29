@@ -426,7 +426,7 @@ box find_CE_via_overapprox(box const & b, unordered_set<Enode*> const & forall_v
     return cs.m_box;
 }
 
-box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config, clause_manager * const cm_ptr) const {
+box contractor_generic_forall::find_CE(box const & b, unordered_set<Enode*> const & forall_vars, vector<Enode*> const & vec, bool const p, SMTConfig & config, /* clause_manager * const cm_ptr */) const {
     // static unsigned under_approx = 0;
     // static unsigned over_approx = 0;
     box counterexample = find_CE_via_underapprox(b, forall_vars, vec, p, config, cm_ptr);

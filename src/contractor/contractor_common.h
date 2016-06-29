@@ -165,12 +165,7 @@ public:
 
     ibex::BitSet get_input() const { return m_ptr->get_input(); }
 
-    void prune(contractor_status & cs) {
-        if (m_ptr) {
-            // by default, clear output vector and used constraints.
-            m_ptr->prune(cs);
-        }
-    }
+    void prune(contractor_status & cs);
     void prune_with_assert(contractor_status & cs);
     bool operator==(contractor const & c) const { return m_ptr == c.m_ptr; }
     bool operator<(contractor const & c) const { return m_ptr < c.m_ptr; }
